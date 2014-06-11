@@ -22,6 +22,26 @@ i386_init(void)
 	page_init();
 	page_check();
 
+	// demo2s_code_start;
+    // asm volatile("jmp ."); //the is added here to find the eip here
+    printf("Here test the part 3\n");
+    
+    {
+       int x=1,y=3,z=4;
+      //int y=3,z=4,x=1;
+      
+      warn("x %d,y %x,z %d",x,y,z);
+      //warn("x %d,y %x,z %d\n",z,y,x);
+
+      u_int i=0x00646c72;
+      warn("H%x Wo%s",57616,&i);
+
+      asm volatile("movl $0x1,%eax\n\tmovl %eax,%ss:0x8(%esp)");
+      warn("x=%d y=%d",3);
+      
+    }
+	// demo2s_code_end;
+	    
 	panic("init.c: end of i386_init() reached!");
 }
 

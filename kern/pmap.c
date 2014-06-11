@@ -97,20 +97,31 @@ static void check_boot_pgdir(void);
 static void *
 alloc(u_int n, u_int align, int clear)
 {
-	extern char end[];
+	extern char end[];// kern/kernel.lds中对文件进行了布局,end就是kernel部分的结尾，所以把freemem初始时指向它 
 	void *v;
 
 	// initialize freemem if this is the first time
 	if (freemem == 0)
 		freemem = (u_long)end;
 
-	// Your code here:
+	// demo2s_code_begin;
 	//	Step 1: round freemem up to be aligned properly
+	/*freemem+=(align-freemem%align)%align;*/
+	freemem=ROUND(freemem,align);
+	if((freemem+n>KERNBASE+maxpa)||freemem+n<freemem) 
+		panic("out of memory!");
+	
 	//	Step 2: save current value of freemem as allocated chunk
+	v=(void*)freemem;
 	//	Step 3: increase freemem to record allocation
+	freemem+=n;
 	//	Step 4: clear allocated chunk if necessary
+	if(clear!=0) {
+		bzero(v,n);
+	}
 	//	Step 5: return allocated chunk
-
+	return v;
+	// demo2s_code_end;
 }
 
 //
@@ -131,6 +142,18 @@ alloc(u_int n, u_int align, int clear)
 static Pte*
 boot_pgdir_walk(Pde *pgdir, u_long va, int create)
 {
+// demo2s_code_begin;
+	Pte * pte;
+	/*PTE_P is defined in inc/mmu.h*/
+	if(!(pgdir[PDX(va)]&PTE_P)) { /* not present*/
+		if(create==0)
+			return 0;
+		/*allocate a new page table */
+		pte=(Pte*)alloc(BY2PG,BY2PG,1);
+		pgdir[PDX(va)]=PADDR(pte)|PTE_W|PTE_P;
+	}
+	return (Pte*)KADDR(PTE_ADDR(pgdir[PDX(va)]))+PTX(va);
+// demo2s_code_end;
 }
 
 //
@@ -141,6 +164,12 @@ boot_pgdir_walk(Pde *pgdir, u_long va, int create)
 static void
 boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
 {
+    // demo2s_code_begin;
+	int i;
+	for(i=0;i<size;i+=BY2PG) {
+			*((u_long*)boot_pgdir_walk(pgdir,va+i,1))=PTE_ADDR(pa+i)|perm|PTE_P;/*!!!!!*/
+	}
+	// demo2s_code_end;
 }
 
 // Set up a two-level page table:
@@ -160,9 +189,9 @@ i386_vm_init(void)
 {
 	Pde *pgdir;
 	u_int cr0, n;
-
+/*
 	panic("i386_vm_init: This function is not finished\n");
-
+*/
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
 	pgdir = alloc(BY2PG, BY2PG, 1);
@@ -188,7 +217,13 @@ i386_vm_init(void)
 	//     * [KSTACKTOP-KSTKSIZE, KSTACKTOP) -- backed by physical memory
 	//     * [KSTACKTOP-PDMAP, KSTACKTOP-KSTKSIZE) -- not backed => faults
 	//   Permissions: kernel RW, user NONE
-	// Your code goes here:
+	// demo2s_code_begin;
+	boot_map_segment(pgdir,KSTACKTOP-KSTKSIZE,KSTKSIZE,PADDR(bootstack),PTE_W);
+
+	int i;
+	for(i=PDX(KSTACKTOP-PDMAP);i<PDX(KSTACKTOP-KSTKSIZE);i++)
+		pgdir[i]=0;
+	// demo2s_code_end;
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE. 
@@ -197,26 +232,37 @@ i386_vm_init(void)
 	// We might not have that many(ie. 2^32 - 1 - KERNBASE)    
 	// bytes of physical memory.  But we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
-	// Your code goes here: 
-
+	// demo2s_code_begin;
+	boot_map_segment(pgdir,KERNBASE,-KERNBASE,0,PTE_W);
+	// demo2s_code_end;
 	//////////////////////////////////////////////////////////////////////
 	// Make 'pages' point to an array of size 'npage' of 'struct Page'.   
 	// Map this array read-only by the user at UPAGES (ie. perm = PTE_U | PTE_P)
 	// Permissions:
 	//    - pages -- kernel RW, user NONE
 	//    - the image mapped at UPAGES  -- kernel R, user R
-	// Your code goes here: 
-
+	// demo2s_code_begin;
+	n=npage*sizeof(struct Page);
+	pages=(struct Page*)alloc(n,BY2PG,1);
+	boot_map_segment(pgdir,UPAGES,n,PADDR(pages),PTE_W);
+	// demo2s_code_end;
 	//////////////////////////////////////////////////////////////////////
 	// Make '__envs' point to an array of size 'NENV' of 'struct Env'.
 	// Map this array read-only by the user at UENVS (ie. perm = PTE_U | PTE_P)
 	// Permissions:
 	//    - __envs -- kernel RW, user NONE
 	//    - the image mapped at UENVS  -- kernel R, user R
-	// Your code goes here: 
-
+	// demo2s_code_begin;
+	n=NENV*sizeof(struct Env);
+	envs=(struct Env*)alloc(n,BY2PG,1);
+	boot_map_segment(pgdir,UENVS,n,PADDR(envs),PTE_W);
+	// demo2s_code_end;
 	check_boot_pgdir();
 
+/* 	for(n=0;n<PDE2PD;n++) { 
+ 		printf("%d\t%p\n",n,pgdir[n]); 
+ 	} 
+  */  
 	//////////////////////////////////////////////////////////////////////
 	// On x86, segmentation maps a VA to a LA (linear addr) and
 	// paging maps the LA to a PA.  I.e. VA => LA => PA.  If paging is
@@ -234,7 +280,9 @@ i386_vm_init(void)
 	// Map VA 0:4MB same as VA KERNBASE, i.e. to PA 0:4MB.
 	// (Limits our kernel to <4MB)
 	pgdir[0] = pgdir[PDX(KERNBASE)];
-
+	// This mapping was only used after paging was turned on but
+	// before the segment registers were reloaded.
+	
 	// Install page table.
 	lcr3(boot_cr3);
 
@@ -248,23 +296,24 @@ i386_vm_init(void)
 	// (x < 4MB so uses paging pgdir[0])
 
 	// Reload all segment registers.
-	asm volatile("lgdt _gdt_pd+2");
+	asm volatile("lgdt gdt_pd+2");// turn off segment addressing!!
 	asm volatile("movw %%ax,%%gs" :: "a" (GD_UD|3));
 	asm volatile("movw %%ax,%%fs" :: "a" (GD_UD|3));
 	asm volatile("movw %%ax,%%es" :: "a" (GD_KD));
 	asm volatile("movw %%ax,%%ds" :: "a" (GD_KD));
 	asm volatile("movw %%ax,%%ss" :: "a" (GD_KD));
 	asm volatile("ljmp %0,$1f\n 1:\n" :: "i" (GD_KT));  // reload cs
-	asm volatile("lldt %0" :: "m" (0));
+	asm volatile("lldt %%ax"::"a"(0));
 
 	// Final mapping: KERNBASE+x => KERNBASE+x => x.
 
 	// This mapping was only used after paging was turned on but
 	// before the segment registers were reloaded.
-	pgdir[0] = 0;
+	pgdir[0] = 0;/*ATTIENTION!! PAGING ADDRESSING*/
 
 	// Flush the TLB for good measure, to kill the pgdir[0] mapping.
 	lcr3(boot_cr3);
+	printf("i386_vm_init() finished!\n");
 }
 
 //
@@ -290,19 +339,27 @@ check_boot_pgdir(void)
 	for(i=0; i<n; i+=BY2PG)
 		assert(va2pa(pgdir, UPAGES+i) == PADDR(pages)+i);
 	
+    //	printf("pages OK!\n");
+	
 	// check envs array
 	n = ROUND(NENV*sizeof(struct Env), BY2PG);
 	for(i=0; i<n; i+=BY2PG)
 		assert(va2pa(pgdir, UENVS+i) == PADDR(envs)+i);
 
+	//printf("envs OK!\n");
+	
 	// check phys mem
 	for(i=0; KERNBASE+i != 0; i+=BY2PG)
 		assert(va2pa(pgdir, KERNBASE+i) == i);
+	
+    //	printf("phys mem OK!\n");
 
 	// check kernel stack
 	for(i=0; i<KSTKSIZE; i+=BY2PG)
 		assert(va2pa(pgdir, KSTACKTOP-KSTKSIZE+i) == PADDR(bootstack)+i);
 
+	//printf("kernel ktack OK!\n");
+	
 	// check for zero/non-zero in PDEs
 	for (i = 0; i < PDE2PD; i++) {
 		switch (i) {
@@ -321,6 +378,8 @@ check_boot_pgdir(void)
 			break;
 		}
 	}
+	//printf("zero/non-zero in PDEs OK!\n");
+	
 	printf("check_boot_pgdir() succeeded!\n");
 }
 
@@ -350,23 +409,52 @@ static void page_initpp(struct Page *pp);
 void
 page_init(void)
 {
-	// The exaple code here marks all pages as free.
+	// The example code here marks all pages as free.
 	// However this is not truly the case.  What memory is free?
-	//  1) Mark page 0 as in use(for good luck) 
+
+	int i,n;
+	LIST_INIT (&page_free_list);
+	// demo2s_code_begin;
+	//  1) Mark page 0 as in use
+	pages[0].pp_ref=1;
+	//LIST_INSERT_HEAD(&page_free_list, &pages[0], pp_link);
+	
 	//  2) Mark the rest of base memory as free.
-	//  3) Then comes the IO hole [IOPHYSMEM, EXTPHYSMEM) => mark it as in use
-	//     So that it can never be allocated.      
+	n=basemem/BY2PG;
+	for (i = 1; i < n; i++) {
+		pages[i].pp_ref = 0;
+		LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+	}	
+	//  3)  the IO hole [IOPHYSMEM, EXTPHYSMEM) :mark it as in use
+	n=EXTPHYSMEM/BY2PG;
+	for (; i < n; i++) {
+		pages[i].pp_ref = 1;
+	//	LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+	}
 	//  4) Then extended memory(ie. >= EXTPHYSMEM):
 	//     ==> some of it's in use some is free. Where is the kernel?
 	//     Which pages are used for page tables and other data structures?    
 	//
 	// Change the code to reflect this.
-	int i;
-	LIST_INIT (&page_free_list);
-	for (i = 0; i < npage; i++) {
-		pages[i].pp_ref = 0;
-		LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+	n=ROUND(freemem,BY2PG)/BY2PG;
+	for (; i < n; i++) {
+		pages[i].pp_ref = 1;
 	}
+
+	for(;i<npage;i++) {
+		pages[i].pp_ref=0;
+		LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+	}			
+	// demo2s_code_end;
+	
+	/* ORIGINAL CODE	
+    int i;
+    LIST_INIT (&page_free_list);
+    for (i = 0; i < npage; i++) {
+            pages[i].pp_ref = 0;
+            LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+    }
+	*/
 }
 
 //
@@ -393,8 +481,13 @@ page_initpp(struct Page *pp)
 int
 page_alloc(struct Page **pp)
 {
-	// Fill this function in
-	return -E_NO_MEM;
+	// demo2s_code_start;
+	if((*pp=LIST_FIRST(&page_free_list))==NULL) 
+		return -E_NO_MEM;
+	LIST_REMOVE(*pp,pp_link);
+	page_initpp(*pp);
+	return 0;
+	// demo2s_code_end;
 }
 
 //
@@ -404,7 +497,10 @@ page_alloc(struct Page **pp)
 void
 page_free(struct Page *pp)
 {
-	// Fill this function in
+	// demo2s_code_start;
+	page_initpp(pp);
+	LIST_INSERT_HEAD(&page_free_list,pp,pp_link);
+	// demo2s_code_end;
 }
 
 //
@@ -422,7 +518,24 @@ page_free(struct Page *pp)
 int
 pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
 {
-	// Fill this function in
+	// demo2s_code_start;
+	struct Page * new_page;
+	if(!(pgdir[PDX(va)]&PTE_P)) { //??
+		if(create==0) {
+			*ppte=0;
+			return 0; //??
+		}
+		if(page_alloc(&new_page)<0) {
+			*ppte=0;
+			return -E_NO_MEM;
+		}
+		new_page->pp_ref++;
+		pgdir[PDX(va)]=page2pa(new_page)|PTE_W|PTE_P;
+	}		
+	*ppte=(Pte*)KADDR(PTE_ADDR(pgdir[PDX(va)]))+PTX(va);
+	//*ppte=(Pte*)PTE_ADDR(pgdir[PDX(va)])+PTX(va);
+	return 0;
+	// demo2s_code_end;
 }
 
 //
@@ -446,6 +559,22 @@ int
 page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm) 
 {
 	// Fill this function in
+	// demo2s_code_s
+	Pte * pte;
+	int status;
+	//if((pgdir[PDX(va)])&PTE_P) {
+	//	page_remove(pgdir,va);
+	//}
+	page_remove(pgdir,va);
+	status=pgdir_walk(pgdir,va,1,&pte);
+	if(status<0)
+		return -E_NO_MEM;
+	 		
+	*pte=page2pa(pp)|perm|PTE_W|PTE_P;
+
+	pp->pp_ref++;
+	return 0;
+	// demo2s_code_end;
 }
 
 //
@@ -466,6 +595,31 @@ void
 page_remove(Pde *pgdir, u_long va) 
 {
 	// Fill this function in
+	// demo2s_code_begin;
+	Pte * pte;
+	struct Page * page;
+	if(va2pa(pgdir,va)==~0) {
+		//printf("VIRTUAL address %p seems has not been mapped\n",va);
+		return;
+	}
+	
+	//printf("VIRTUAL address %p seems has been mapped\n",va);
+	
+	pgdir_walk(pgdir,va,0,&pte);
+	if(pte==0) {
+		printf("virtual address %p seems has not been mapped\n",va);
+		return;
+	}
+	
+	page=pa2page(*pte);
+	
+	page->pp_ref--;
+	
+	if(page->pp_ref==0)
+		page_free(page);
+	bzero(pte,sizeof(*pte));
+	tlb_invalidate(pgdir,va);
+	// demo2s_code_end;
 }
 
 //
@@ -502,6 +656,8 @@ page_check(void)
 
 	// should be no free memory
 	assert(page_alloc(&pp) == -E_NO_MEM);
+	
+    printf("page_alloc() seems worked!\n");
 
 	// there is no free memory, so we can't allocate a page table 
 	assert(page_insert(boot_pgdir, pp1, 0x0, 0) < 0);
@@ -513,11 +669,17 @@ page_check(void)
 	assert(va2pa(boot_pgdir, 0x0) == page2pa(pp1));
 	assert(pp1->pp_ref == 1);
 
+	//demo2s
+	assert(page_alloc(&pp) < 0);//assert(page_alloc(&pp0) < 0); ===>error !! 
+	
 	// should be able to map pp2 at BY2PG because pp0 is already allocated for page table
 	assert(page_insert(boot_pgdir, pp2, BY2PG, 0) == 0);
 	assert(va2pa(boot_pgdir, BY2PG) == page2pa(pp2));
 	assert(pp2->pp_ref == 1);
-
+	
+	//demo2s
+	assert(page_alloc(&pp) < 0);//assert(page_alloc(&pp0) < 0); ===>error !! 
+	
 	// should not be able to map at PDMAP because need free page for page table
 	assert(page_insert(boot_pgdir, pp0, PDMAP, 0) < 0);
 

@@ -98,7 +98,7 @@ cons_putc(short int c)
 	/* scroll if necessary */
 	if (crt_pos >= CRT_SIZE) {
 		int i;
-		bcopy(crt_buf + CRT_COLS, crt_buf, CRT_SIZE << 1);
+		bcopy(crt_buf + CRT_COLS, crt_buf, CRT_SIZE << 1);//CRT_SIZE << 1 because a short is 2 bytes
 		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
 			crt_buf[i] = 0x0700 | ' ';
 		crt_pos -= CRT_COLS;

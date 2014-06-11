@@ -172,11 +172,15 @@ kprintf(const char *fmt, va_list ap)
 			base = 10;
 			goto number;
 		case 'o':
-			/* Replace this with your code to print in octal. */
+			/* Replace this with your code to print in octal. 
 			cons_putc('X');
 			cons_putc('X');
-			cons_putc('X');
-			break;
+			cons_putc('X');*/
+			// demo2s_code_begin;
+			uq = getint(&ap, lflag, qflag);
+			base=8;
+			goto number;
+			// demo2s_code_end;
 		case 'p':
 			cons_putc('0');
 			cons_putc('x');
