@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="DemoOS: Set-Up" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Set Up</title>
+  </head>
+
+  <body>
+
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h2>
+<a name="configure-bochs" class="anchor" href="#configure-bochs"><span class="octicon octicon-link"></span></a>Configure bochs</h2>
+
+<h4>
+<a name="x-lib-not-found" class="anchor" href="#x-lib-not-found"><span class="octicon octicon-link"></span></a>X LIB NOT FOUND</h4>
+
+<p><code>ERROR: X windows gui was selected, but X windows libraries were not found.</code></p>
+
+<p>Soultion: </p>
+
+<pre><code>./configure --with-nogui 
+</code></pre>
+
+<p>OR</p>
+
+<pre><code>sudo zypper install xorg-x11-devel
+./configure --enable-debugger --enable-disasm --enable-iodebug \
+ --enable-readline   
+</code></pre>
+
+<h4>
+<a name="hash_map-not-a-type" class="anchor" href="#hash_map-not-a-type"><span class="octicon octicon-link"></span></a>HASH_MAP NOT A TYPE</h4>
+
+<pre><code>symbols.cc: At global scope:
+symbols.cc:135:10: error: ¡®hash_map¡¯ does not name a type
+   static hash_map&lt;int,context_t*&gt;* map;
+          ^
+symbols.cc:143:1: error: ¡®hash_map¡¯ does not name a type
+ hash_map&lt;int,context_t*&gt;* context_t::map = new hash_map&lt;int,context_t*&gt;;
+ ^
+symbols.cc: In constructor ¡®context_t::context_t(Bit32u)¡¯:
+symbols.cc:150:5: error: ¡®map¡¯ was not declared in this scope
+   (*map)[id] = this;
+     ^
+symbols.cc: In static member function ¡®static context_t* context_t::get_context(Bit32u)¡¯:
+symbols.cc:171:12: error: ¡®map¡¯ was not declared in this scope
+   return (*map)[i];
+            ^
+make[1]: *** [symbols.o] ´íÎó 1
+</code></pre>
+
+<p>Solution:</p>
+
+<p><code>vi bx_debug/symbols.cc</code> Add the following statement</p>
+
+<div class="highlight highlight-c"><pre><span class="n">using</span> <span class="n">namespace</span> <span class="n">__gnu_cxx</span><span class="p">;</span>
+</pre></div>
+
+<h4>
+<a name="diasm-synatx" class="anchor" href="#diasm-synatx"><span class="octicon octicon-link"></span></a>DIASM SYNATX</h4>
+
+<p><code>vi disasm/disasm.h</code></p>
+
+<p>Intel Syntax</p>
+
+<pre><code>set_syntax_intel();
+</code></pre>
+
+<p>AT&amp;T Syntax</p>
+
+<pre><code>set_syntax_att();
+</code></pre>
+
+<h2>
+<a name="qa" class="anchor" href="#qa"><span class="octicon octicon-link"></span></a>Q&amp;A</h2>
+
+<h4>
+<a name="section-comment" class="anchor" href="#section-comment"><span class="octicon octicon-link"></span></a>Section ".comment"</h4>
+
+<p><code>can not represent section '.eh_frame' in a.out object file format</code></p>
+
+<p>Solution: 
+gcc <code>-fno-ident</code>    .comment section wasn't generated</p>
+
+<h4>
+<a name="section-eh_frame" class="anchor" href="#section-eh_frame"><span class="octicon octicon-link"></span></a>Section ".eh_frame"</h4>
+
+<p>can not represent section '.eh_frame' in a.out object file format</p>
+
+<p>Solution: gcc <code>-fno-asynchronous-unwind-tables</code></p>
+
+<p>OR </p>
+
+<pre><code>strip --remove-section=.eh_frame --remove-section=.eh_frame_ptr kernel.o
+strip --remove-section=.rodata --remove-section=.note.GNU-stack kernel.o
+</code></pre>
+
+<h4>
+<a name="section-textunlikely" class="anchor" href="#section-textunlikely"><span class="octicon octicon-link"></span></a>Section ".text.unlikely"</h4>
+
+<p><code>can not represent section '.text.unlikely' in a.out object file format</code></p>
+
+<p>Solution:  gcc <code>-fno-reorder-functions</code> </p>
+
+<h4>
+<a name="__udivdi3_umoddi3" class="anchor" href="#__udivdi3_umoddi3"><span class="octicon octicon-link"></span></a>__udivdi3/_umoddi3</h4>
+
+<p><code>undefined reference to</code>__udivdi3'`</p>
+
+<p>64bit dividen. refer <a href="http://www.cnblogs.com/wuyuegb2312/articles/2577501.html">http://www.cnblogs.com/wuyuegb2312/articles/2577501.html</a></p>
+
+<p>Solution:  Install gcc 32bit libs</p>
+
+<h4>
+<a name="output-format" class="anchor" href="#output-format"><span class="octicon octicon-link"></span></a>output format</h4>
+
+<p>Error: <code>ld: i386 architecture of input file 'XXXXX.o' is incompatible with i386:x86-64 output</code></p>
+
+<p>Solution: Add <code>-melf_i386</code> to the flags pass to ld </p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/linxiaohui">linxiaohui</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+
+
+    
+
+  </body>
+</html>
