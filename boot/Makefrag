@@ -12,7 +12,7 @@ BOOT_OBJS := boot/boot.o boot/main.o
 
 
 boot/boot: $(BOOT_OBJS)
-	ld -N -e start -Ttext 0x7C00 -o $@.out $^
+	$(LD) -N -e start -Ttext 0x7C00 -o $@.out $^
 	objcopy -S -O binary $@.out $@
 
 

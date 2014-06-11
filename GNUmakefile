@@ -1,11 +1,11 @@
 TOP = .
 
 # Cross-compiler osclass toolchain
-CC	:= gcc -pipe
+CC	:= gcc-3.3 -pipe -m32
 GCC_LIB := $(shell $(CC) -print-libgcc-file-name)
 AS	:= as
 AR	:= ar
-LD	:= ld
+LD	:= /usr/i586-suse-linux/bin/ld 
 OBJCOPY	:= objcopy
 
 # Native commands

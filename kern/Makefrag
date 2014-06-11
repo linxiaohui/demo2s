@@ -48,7 +48,8 @@ kern/kernel: $(KERN_OBJFILES)
 
 # How to build the Bochs disk image
 kern/bochs.img: kern/kernel boot/boot
-	dd if=/dev/zero	of=kern/bochs.img~ count=10000
+	rm -f kern/bochs.img~
+	bximage -hd -mode=flat -size=10 kern/bochs.img~ -q
 	dd if=boot/boot of=kern/bochs.img~ conv=notrunc
 	dd if=kern/kernel of=kern/bochs.img~ seek=1 conv=notrunc
 	mv kern/bochs.img~ kern/bochs.img

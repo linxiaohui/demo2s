@@ -33,6 +33,7 @@ SECTIONS
 	}
   /DISCARD/ : {
 	*(.comment)
+	*(.debug_*)
 	}
   end = . ;
 
