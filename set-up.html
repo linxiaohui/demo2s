@@ -32,6 +32,14 @@
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
         <h2>
+<a name="system" class="anchor" href="#system"><span class="octicon octicon-link"></span></a>System</h2>
+
+<pre><code>OpenSUSE Linux 13.1 x84_64 
+gcc 4.8 
+bochs-2.2.6  
+</code></pre>
+
+<h2>
 <a name="configure-bochs" class="anchor" href="#configure-bochs"><span class="octicon octicon-link"></span></a>Configure bochs</h2>
 
 <h4>
@@ -128,7 +136,7 @@ strip --remove-section=.rodata --remove-section=.note.GNU-stack kernel.o
 <h4>
 <a name="__udivdi3_umoddi3" class="anchor" href="#__udivdi3_umoddi3"><span class="octicon octicon-link"></span></a>__udivdi3/_umoddi3</h4>
 
-<p><code>undefined reference to</code>__udivdi3'`</p>
+<p><code>undefined reference to '__udivdi3'</code></p>
 
 <p>64bit dividen. refer <a href="http://www.cnblogs.com/wuyuegb2312/articles/2577501.html">http://www.cnblogs.com/wuyuegb2312/articles/2577501.html</a></p>
 
@@ -140,6 +148,15 @@ strip --remove-section=.rodata --remove-section=.note.GNU-stack kernel.o
 <p>Error: <code>ld: i386 architecture of input file 'XXXXX.o' is incompatible with i386:x86-64 output</code></p>
 
 <p>Solution: Add <code>-melf_i386</code> to the flags pass to ld </p>
+
+<h2>
+<a name="notes" class="anchor" href="#notes"><span class="octicon octicon-link"></span></a>NOTES</h2>
+
+<p>Although the options introduced above can make the build process successful, DemoOS can not run on Bochs. The following packages are REQUIRED. (with no above options)</p>
+
+<p><code>sudo zypper install gcc3.3 gcc3.3-32bit cross-i386-binutils</code></p>
+
+<p><a href="index.html">Return </a></p>
       </section>
     </div>
 
