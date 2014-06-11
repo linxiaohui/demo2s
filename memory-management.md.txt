@@ -1,0 +1,29 @@
+
+
+### section '.debug_aranges'
+
+can not represent section '.debug_aranges' in a.out object file format
+
+kernel.lds
+
+  /DISCARD/ : {
+        *(.comment)
+        *(.debug_*)
+        }
+        
+### Bochs
+
+`vb`, `lb`, and `pb` breakpoint commands to break at virtual, linear, and physical breakpoints. 
+The default `b` command breaks at a physical address
+`x` command examines data at a linear address. The command `xp` takes a physical address
+
+
+
+### VM layout (of the kernel part of the VA space)
+The layout of the kernel portion of the virtual address space will be handled by the `i386_vm_init()` function
+
+
+### Physical page management
+
+
+### Printf Potpourri
