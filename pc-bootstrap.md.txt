@@ -1,0 +1,158 @@
+Download This Lab Resource [lab1.tar.gz](MIT6.828/lab1.tar.gz)
+## PC Bootstrap
+
+### Boot Time
+
+`make ex1.disk && bochs -q`
+
+The IBM PC starts executing at CS = 0xf000 and IP = 0xfff0
+
+The PC hardware is set up so that the address range 0xf0000 - 0xfffff contains the BIOS (Basic Input/Output System). On reset, the processor sets CS to 0xf000 and the IP to 0xfff0, and consequently, execution begins at that (CS:IP) segment address
+
+`hexdump -x BIOS-bochs-latest` shows that the instruction located at 0xf000:0xfff0 is from BIOS (see the last 16 byte of BIOS) 
+
+Next, when the BIOS runs, it sets up an interrupt descriptor table, initializes devices and searches for a bootable device (e.g., a floppy, hard drive, CDROM). When it finds a bootable devices, the BIOS loads the first sector (512 bytes) into memory at address 0x7c00 - 0x7d00 and sets CS:IP to 0000:7c00
+
+### Bochs
+Useful Skill 
+
+`info registers`
+
+`dump_cpu`
+
+`b 0x7c00`
+
+`c`
+
+`x /10w 0x7c00`
+
+
+##### 1)	Disassemble 0x7c00
+`make ex1.disk && bochs -q`, use `b 0x7c00` setup a breakpoit at 0x7c00, and `c` to continue, 
+`u/5 ` disasm 5 instructions and compare with ex1.S. 
+##### 2)	single-stepping
+use command `s` to single-step run instructions, compare with ex1.S.  
+##### 3)	NOP
+the machine code for a `NOP` is `0x90`.
+##### 4)	JMP
+the machine code for `jmp start` is 0xe9f9ff, from [The IA-32 Intel Architecture Software Developer’s Manual, Volume 2: Instruction Set Reference](resources/IA32-Volume2.pdf) (Page366): e9为短跳转的机器码,f9ff为偏移. 
+由于Intel结构是little endian,即一个字的高字节放在高位,低字节放在低位,所以上面的偏移代表0xff9f,转化成十进制为-7.
+该偏移量相对与jmp指令的尾部,因为上面的jmp指令三个字节,前面4个NOP指令各占一个字节.
+
+### Link vs. Load Address
+#####   1)  Trace the execution with Bochs' debugger
+`b 0x7c00` and using `s` to single step, when `movl $here,%eax` executed, the EAX value 0x7c01.
+#####   2)  what 'jmp *%eax' does
+‘jmp *%eax’: 跳转到以eax内容为地址的内存处. 执行该指令前cs:eip=0x0:0x7c0a,执行该指令后cs:eip=0x0:0x7c01
+#####   3)  why this code would not run correctly if the BIOS did not load it at address 0x7c00.
+因为代码movl $here,%eax汇编后$here被汇编成常数,该常数与link address相关,而若其load  address不等于link address的话,%eax不能得到正确的值,因而不能跳转到正确的地址.
+#####   4)  ex1.S v.s ex2.S
+ex1.S中, jmp start语句是近跳转,汇编后产生的指令是相对跳转指令.
+#####   5)  Link Address
+the `BOOTADDR` in `Makefile` will affect the value in `eax` after `movl $here,%eax` executed. (eax=BOOTADDR+1). 
+link address就是ld假设程序会被load到该地址执行因而对程序中的符号汇编成常数时会以link address为准.
+
+
+### Bochs Disk Images
+Useful skill `xxd -g 1 -a disk`
+##### 1) LINK ADDRESS
+the `BOOTADDR` in `Makefile` will affect `movl $here,%eax` 's machine code. If BIOS loads disk image to another location, contents of the disk image will NOT change. 
+##### 2) DISK IMAGE
+The `Makefile` shows how a disk image is built.
+`bximage -hd -mode=flat -size=1 disk -q` create a blank disk and `dd` writes contents to the disk.
+
+### Initializing the Stack
+##### 1) `x /40b 0x7c00` 
+`x /40b 0x7c00` in the Bochs debugger, print out 40 bytes starting at address 0x7c00. It is the contents of DISK IMAGE.
+##### 2) call
+CALL instruction pushes its return address on the stack. ss:esp=0x0:0x7c00 right before the CALL instruction, the corresponding memory is 0xc031(value of memory 0x0:0x7c00). ss:esp=0x0:0x7bfe right after the CALL instruction. the corresponding memory is `0x7c0a`. Therefore `0x7c0a` is pushed into the stack. This value is determined by load address and the code.
+##### 3) ret
+ret 指令将栈顶的值弹出(esp将加2)作为返回地址返回. 在执行该指令前ss:esp=0x0:0x7bfe,对应的内容为0x7c0a.执行该指令后ss:esp=0x0:0x7c00,对应的内容为0xc031. 
+##### 4) stack versus the boot sector's code
+`STACK` is before `BOOT SECTOR'S CODE`(lower address). They are ABUT
+##### 5) What would happen differently if ex3 were loaded at a different place in memory?
+如果ex3被加载到内存的其他地方,堆栈与代码的位置将发生变化.程序的运行结果是不变的.(Unless堆栈与核心代码重叠破坏核心代码况)。
+
+### The boot loader
+概括的说boot loader的任务是将CPU设置成在保护模式下,并将系统核心(从硬盘)调入内存中某一位置. 通过阅读`boot.S`可以理解其工作流程. 需注意两点：`A20`与`cr0`
+
+`A20`是地址线,开机时默认是关闭的,需要打开.否则第20位地址总是0. 打开的方法是读写8042的控制寄存器和数据寄存器(Read `boot.S`). `cr0`的第0位决定着CPU是否运行在保护模式下。
+
+###### set up the segment descriptor
+修改bootc.c使其能正常工作,其实就是设置好cs和ds指向的段描述符. 结合x86在保护模式下段寻址的方式,采取的方法将kernel中的link address信息(即其a.out的header中的a_entry)的最高字节的相反数赋给cs和ds指向的段描述符.
+```
+  tmp=hdr->a_entry & 0xff000000;
+  tmp*=-1;
+  cseg[1]&=0xffffff;//just in case
+  cseg[1]|=tmp;
+  dseg[1]&=0xffffff;//just in case
+  dseg[1]|=tmp;
+```
+这样,经过段寻址机制后得到的物理地址(严格的说应该是线性地址)即为kernel所被装载的地址.
+
+
+## Calling Conventions
+
+实现`int setjmp(jmp_buf env)`, `void longjmp(jmp_buf env, int)`函数
+这两个函数能够实现函数间的跳跃. setjmp的功能是将当前CPU的状态(主要指寄存器)保存在env中(一个数据结构).env中保存了setjmp的返回地址,以供longjmp返回时使用.解决这一问题,关键是理解gcc的调用规范. 调用函数时调用者将参数压入栈中,然后call子程序.call指令将返回地址压入栈中转移值子程序. 子程序返回时(ret指令执行时) 从栈顶取出返回地址,执行流程转移到那里. 具体实现见jmp.S文件. 需要特别注意的是bochs的堆栈指针(esp)的指向问题.
+
+1.	根据gcc调用规范EAX, ECX, 和EDX是调用者负责保存的,因此setjmp不需要保存.
+2.	当setjmp函数被调用时，它保存的程序执行点环境，只在当前的函数作用域以内才会有效。如果函数返回了(活动记录消失了)，那么setjmp保存的程序的环境也将无效.这时如果调用longjmp的话,其会返回对当前来说是错误的地址.这样是不正确的，甚至会引发程序崩溃。因此在此过程中setjmp的调用者不能返回.
+
+
+jmp.s 
+```
+.code32
+.globl _setjmp828, _longjmp828, setjmp828, longjmp828
+
+setjmp828:
+_setjmp828:
+        # Get env, which is function argument 1.  Copy it into a register.
+	movl 4(%esp),%eax      
+	movl %ebp,(%eax)       # Copy %ebp into env->ebp
+	movl %ebx,4(%eax)      # Copy %ebx into env->ebx
+	movl %esi,8(%eax)      # Copy %esi into env->esi
+	movl %edi,12(%eax)     # Copy %edi into env->edi
+	movl %esp,16(%eax)     # Copy %esp into env->esp
+	movl (%esp),%ecx
+	movl %ecx,20(%eax)     # Copy the return address into %ret
+	movl $0,%eax           # Return 0
+	ret
+
+longjmp828:
+_longjmp828:
+	# Reconstruct the state setted in _setjmp828.
+	movl 4(%esp),%eax     
+	movl (%eax),%ebp
+	movl 4(%eax),%ebx
+	movl 8(%eax),%esi
+	movl 12(%eax),%edi
+	movl 8(%esp),%edx     # return value
+	movl 16(%eax),%esp    # reset esp
+	movl 20(%eax),%ecx
+	movl %ecx,(%esp)
+	movl %edx,%eax
+	ret
+```
+	
+
+## Misc
+##### .bochsrc
+`ata0-master: type=disk, mode=flat, path="./disk", cylinders=2, heads=16, spt=63`
+
+clinders heads spt(sectors per trace) describe the HARD DISK used by bochs.(A Disk Image), if they are not matched with "./disk"，bochs will show:
+```
+Event type: PANIC
+Device: [HD   ]
+Message: ata0/0 image size doesn't match specified geometry
+```
+To avoid this, use `bximage` and record the output, the change `.bochsrc`
+
+`rm -f disk && bximage -hd -mode=flat -size=1 disk –q`
+
+###### Stack Pointer
+Intel X86系列的堆栈指针指向栈顶第一个可用地址,但在bochs中不是这样. bochs的堆栈指针指向栈顶最后一个元素.
+
+------------------
+
+[Return](index.html)

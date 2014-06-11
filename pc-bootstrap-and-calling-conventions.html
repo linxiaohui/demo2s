@@ -1,4 +1,269 @@
-### PC Bootstrap and Calling Conventions
+<!DOCTYPE html>
+<html>
 
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="demo2s : DemoOS: MIT OCW 6.828" />
 
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
+    <title>demo2s: PC BootStrap & Calling Conventions</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/linxiaohui/demo2s">View on GitHub</a>
+
+          <h1 id="project_title">demo2s</h1>
+          <h2 id="project_tagline">DemoOS: MIT OCW 6.828</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/linxiaohui/demo2s/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/linxiaohui/demo2s/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <p>Download This Lab Resource <a href="MIT6.828/lab1.tar.gz">lab1.tar.gz</a></p>
+
+<h2>
+<a name="pc-bootstrap" class="anchor" href="#pc-bootstrap"><span class="octicon octicon-link"></span></a>PC Bootstrap</h2>
+
+<h3>
+<a name="boot-time" class="anchor" href="#boot-time"><span class="octicon octicon-link"></span></a>Boot Time</h3>
+
+<p><code>make ex1.disk &amp;&amp; bochs -q</code></p>
+
+<p>The IBM PC starts executing at CS = 0xf000 and IP = 0xfff0</p>
+
+<p>The PC hardware is set up so that the address range 0xf0000 - 0xfffff contains the BIOS (Basic Input/Output System). On reset, the processor sets CS to 0xf000 and the IP to 0xfff0, and consequently, execution begins at that (CS:IP) segment address</p>
+
+<p><code>hexdump -x BIOS-bochs-latest</code> shows that the instruction located at 0xf000:0xfff0 is from BIOS (see the last 16 byte of BIOS) </p>
+
+<p>Next, when the BIOS runs, it sets up an interrupt descriptor table, initializes devices and searches for a bootable device (e.g., a floppy, hard drive, CDROM). When it finds a bootable devices, the BIOS loads the first sector (512 bytes) into memory at address 0x7c00 - 0x7d00 and sets CS:IP to 0000:7c00</p>
+
+<h3>
+<a name="bochs" class="anchor" href="#bochs"><span class="octicon octicon-link"></span></a>Bochs</h3>
+
+<p>Useful Skill </p>
+
+<p><code>info registers</code></p>
+
+<p><code>dump_cpu</code></p>
+
+<p><code>b 0x7c00</code></p>
+
+<p><code>c</code></p>
+
+<p><code>x /10w 0x7c00</code></p>
+
+<h5>
+<a name="1----disassemble-0x7c00" class="anchor" href="#1----disassemble-0x7c00"><span class="octicon octicon-link"></span></a>1)    Disassemble 0x7c00</h5>
+
+<p><code>make ex1.disk &amp;&amp; bochs -q</code>, use <code>b 0x7c00</code> setup a breakpoit at 0x7c00, and <code>c</code> to continue, 
+<code>u/5</code> disasm 5 instructions and compare with ex1.S. </p>
+
+<h5>
+<a name="2----single-stepping" class="anchor" href="#2----single-stepping"><span class="octicon octicon-link"></span></a>2)    single-stepping</h5>
+
+<p>use command <code>s</code> to single-step run instructions, compare with ex1.S.  </p>
+
+<h5>
+<a name="3----nop" class="anchor" href="#3----nop"><span class="octicon octicon-link"></span></a>3)    NOP</h5>
+
+<p>the machine code for a <code>NOP</code> is <code>0x90</code>.</p>
+
+<h5>
+<a name="4----jmp" class="anchor" href="#4----jmp"><span class="octicon octicon-link"></span></a>4)    JMP</h5>
+
+<p>the machine code for <code>jmp start</code> is 0xe9f9ff, from <a href="resources/IA32-Volume2.pdf">The IA-32 Intel Architecture Software Developer’s Manual, Volume 2: Instruction Set Reference</a> (Page366): e9为短跳转的机器码,f9ff为偏移. 
+由于Intel结构是little endian,即一个字的高字节放在高位,低字节放在低位,所以上面的偏移代表0xff9f,转化成十进制为-7.
+该偏移量相对与jmp指令的尾部,因为上面的jmp指令三个字节,前面4个NOP指令各占一个字节.</p>
+
+<h3>
+<a name="link-vs-load-address" class="anchor" href="#link-vs-load-address"><span class="octicon octicon-link"></span></a>Link vs. Load Address</h3>
+
+<h5>
+<a name="1--trace-the-execution-with-bochs-debugger" class="anchor" href="#1--trace-the-execution-with-bochs-debugger"><span class="octicon octicon-link"></span></a>1)  Trace the execution with Bochs' debugger</h5>
+
+<p><code>b 0x7c00</code> and using <code>s</code> to single step, when <code>movl $here,%eax</code> executed, the EAX value 0x7c01.</p>
+
+<h5>
+<a name="2--what-jmp-eax-does" class="anchor" href="#2--what-jmp-eax-does"><span class="octicon octicon-link"></span></a>2)  what 'jmp *%eax' does</h5>
+
+<p>‘jmp *%eax’: 跳转到以eax内容为地址的内存处. 执行该指令前cs:eip=0x0:0x7c0a,执行该指令后cs:eip=0x0:0x7c01</p>
+
+<h5>
+<a name="3--why-this-code-would-not-run-correctly-if-the-bios-did-not-load-it-at-address-0x7c00" class="anchor" href="#3--why-this-code-would-not-run-correctly-if-the-bios-did-not-load-it-at-address-0x7c00"><span class="octicon octicon-link"></span></a>3)  why this code would not run correctly if the BIOS did not load it at address 0x7c00.</h5>
+
+<p>因为代码movl $here,%eax汇编后$here被汇编成常数,该常数与link address相关,而若其load  address不等于link address的话,%eax不能得到正确的值,因而不能跳转到正确的地址.</p>
+
+<h5>
+<a name="4--ex1s-vs-ex2s" class="anchor" href="#4--ex1s-vs-ex2s"><span class="octicon octicon-link"></span></a>4)  ex1.S v.s ex2.S</h5>
+
+<p>ex1.S中, jmp start语句是近跳转,汇编后产生的指令是相对跳转指令.</p>
+
+<h5>
+<a name="5--link-address" class="anchor" href="#5--link-address"><span class="octicon octicon-link"></span></a>5)  Link Address</h5>
+
+<p>the <code>BOOTADDR</code> in <code>Makefile</code> will affect the value in <code>eax</code> after <code>movl $here,%eax</code> executed. (eax=BOOTADDR+1). 
+link address就是ld假设程序会被load到该地址执行因而对程序中的符号汇编成常数时会以link address为准.</p>
+
+<h3>
+<a name="bochs-disk-images" class="anchor" href="#bochs-disk-images"><span class="octicon octicon-link"></span></a>Bochs Disk Images</h3>
+
+<p>Useful skill <code>xxd -g 1 -a disk</code></p>
+
+<h5>
+<a name="1-link-address" class="anchor" href="#1-link-address"><span class="octicon octicon-link"></span></a>1) LINK ADDRESS</h5>
+
+<p>the <code>BOOTADDR</code> in <code>Makefile</code> will affect <code>movl $here,%eax</code> 's machine code. If BIOS loads disk image to another location, contents of the disk image will NOT change. </p>
+
+<h5>
+<a name="2-disk-image" class="anchor" href="#2-disk-image"><span class="octicon octicon-link"></span></a>2) DISK IMAGE</h5>
+
+<p>The <code>Makefile</code> shows how a disk image is built.
+<code>bximage -hd -mode=flat -size=1 disk -q</code> create a blank disk and <code>dd</code> writes contents to the disk.</p>
+
+<h3>
+<a name="initializing-the-stack" class="anchor" href="#initializing-the-stack"><span class="octicon octicon-link"></span></a>Initializing the Stack</h3>
+
+<h5>
+<a name="1-x-40b-0x7c00" class="anchor" href="#1-x-40b-0x7c00"><span class="octicon octicon-link"></span></a>1) <code>x /40b 0x7c00</code>
+</h5>
+
+<p><code>x /40b 0x7c00</code> in the Bochs debugger, print out 40 bytes starting at address 0x7c00. It is the contents of DISK IMAGE.</p>
+
+<h5>
+<a name="2-call" class="anchor" href="#2-call"><span class="octicon octicon-link"></span></a>2) call</h5>
+
+<p>CALL instruction pushes its return address on the stack. ss:esp=0x0:0x7c00 right before the CALL instruction, the corresponding memory is 0xc031(value of memory 0x0:0x7c00). ss:esp=0x0:0x7bfe right after the CALL instruction. the corresponding memory is <code>0x7c0a</code>. Therefore <code>0x7c0a</code> is pushed into the stack. This value is determined by load address and the code.</p>
+
+<h5>
+<a name="3-ret" class="anchor" href="#3-ret"><span class="octicon octicon-link"></span></a>3) ret</h5>
+
+<p>ret 指令将栈顶的值弹出(esp将加2)作为返回地址返回. 在执行该指令前ss:esp=0x0:0x7bfe,对应的内容为0x7c0a.执行该指令后ss:esp=0x0:0x7c00,对应的内容为0xc031. </p>
+
+<h5>
+<a name="4-stack-versus-the-boot-sectors-code" class="anchor" href="#4-stack-versus-the-boot-sectors-code"><span class="octicon octicon-link"></span></a>4) stack versus the boot sector's code</h5>
+
+<p><code>STACK</code> is before <code>BOOT SECTOR'S CODE</code>(lower address). They are ABUT</p>
+
+<h5>
+<a name="5-what-would-happen-differently-if-ex3-were-loaded-at-a-different-place-in-memory" class="anchor" href="#5-what-would-happen-differently-if-ex3-were-loaded-at-a-different-place-in-memory"><span class="octicon octicon-link"></span></a>5) What would happen differently if ex3 were loaded at a different place in memory?</h5>
+
+<p>如果ex3被加载到内存的其他地方,堆栈与代码的位置将发生变化.程序的运行结果是不变的.(Unless堆栈与核心代码重叠破坏核心代码况)。</p>
+
+<h3>
+<a name="the-boot-loader" class="anchor" href="#the-boot-loader"><span class="octicon octicon-link"></span></a>The boot loader</h3>
+
+<p>概括的说boot loader的任务是将CPU设置成在保护模式下,并将系统核心(从硬盘)调入内存中某一位置. 通过阅读<code>boot.S</code>可以理解其工作流程. 需注意两点：<code>A20</code>与<code>cr0</code></p>
+
+<p><code>A20</code>是地址线,开机时默认是关闭的,需要打开.否则第20位地址总是0. 打开的方法是读写8042的控制寄存器和数据寄存器(Read <code>boot.S</code>). <code>cr0</code>的第0位决定着CPU是否运行在保护模式下。</p>
+
+<h6>
+<a name="set-up-the-segment-descriptor" class="anchor" href="#set-up-the-segment-descriptor"><span class="octicon octicon-link"></span></a>set up the segment descriptor</h6>
+
+<p>修改bootc.c使其能正常工作,其实就是设置好cs和ds指向的段描述符. 结合x86在保护模式下段寻址的方式,采取的方法将kernel中的link address信息(即其a.out的header中的a_entry)的最高字节的相反数赋给cs和ds指向的段描述符.</p>
+
+<pre><code>  tmp=hdr-&gt;a_entry &amp; 0xff000000;
+  tmp*=-1;
+  cseg[1]&amp;=0xffffff;//just in case
+  cseg[1]|=tmp;
+  dseg[1]&amp;=0xffffff;//just in case
+  dseg[1]|=tmp;
+</code></pre>
+
+<p>这样,经过段寻址机制后得到的物理地址(严格的说应该是线性地址)即为kernel所被装载的地址.</p>
+
+<h2>
+<a name="calling-conventions" class="anchor" href="#calling-conventions"><span class="octicon octicon-link"></span></a>Calling Conventions</h2>
+
+<p>实现<code>int setjmp(jmp_buf env)</code>, <code>void longjmp(jmp_buf env, int)</code>函数
+这两个函数能够实现函数间的跳跃. setjmp的功能是将当前CPU的状态(主要指寄存器)保存在env中(一个数据结构).env中保存了setjmp的返回地址,以供longjmp返回时使用.解决这一问题,关键是理解gcc的调用规范. 调用函数时调用者将参数压入栈中,然后call子程序.call指令将返回地址压入栈中转移值子程序. 子程序返回时(ret指令执行时) 从栈顶取出返回地址,执行流程转移到那里. 具体实现见jmp.S文件. 需要特别注意的是bochs的堆栈指针(esp)的指向问题.</p>
+
+<ol>
+<li> 根据gcc调用规范EAX, ECX, 和EDX是调用者负责保存的,因此setjmp不需要保存.</li>
+<li> 当setjmp函数被调用时，它保存的程序执行点环境，只在当前的函数作用域以内才会有效。如果函数返回了(活动记录消失了)，那么setjmp保存的程序的环境也将无效.这时如果调用longjmp的话,其会返回对当前来说是错误的地址.这样是不正确的，甚至会引发程序崩溃。因此在此过程中setjmp的调用者不能返回.</li>
+</ol><p>jmp.s </p>
+
+<pre><code>.code32
+.globl _setjmp828, _longjmp828, setjmp828, longjmp828
+
+setjmp828:
+_setjmp828:
+        # Get env, which is function argument 1.  Copy it into a register.
+    movl 4(%esp),%eax      
+    movl %ebp,(%eax)       # Copy %ebp into env-&gt;ebp
+    movl %ebx,4(%eax)      # Copy %ebx into env-&gt;ebx
+    movl %esi,8(%eax)      # Copy %esi into env-&gt;esi
+    movl %edi,12(%eax)     # Copy %edi into env-&gt;edi
+    movl %esp,16(%eax)     # Copy %esp into env-&gt;esp
+    movl (%esp),%ecx
+    movl %ecx,20(%eax)     # Copy the return address into %ret
+    movl $0,%eax           # Return 0
+    ret
+
+longjmp828:
+_longjmp828:
+    # Reconstruct the state setted in _setjmp828.
+    movl 4(%esp),%eax     
+    movl (%eax),%ebp
+    movl 4(%eax),%ebx
+    movl 8(%eax),%esi
+    movl 12(%eax),%edi
+    movl 8(%esp),%edx     # return value
+    movl 16(%eax),%esp    # reset esp
+    movl 20(%eax),%ecx
+    movl %ecx,(%esp)
+    movl %edx,%eax
+    ret
+</code></pre>
+
+<h2>
+<a name="misc" class="anchor" href="#misc"><span class="octicon octicon-link"></span></a>Misc</h2>
+
+<h5>
+<a name="bochsrc" class="anchor" href="#bochsrc"><span class="octicon octicon-link"></span></a>.bochsrc</h5>
+
+<p><code>ata0-master: type=disk, mode=flat, path="./disk", cylinders=2, heads=16, spt=63</code></p>
+
+<p>clinders heads spt(sectors per trace) describe the HARD DISK used by bochs.(A Disk Image), if they are not matched with "./disk"，bochs will show:</p>
+
+<pre><code>Event type: PANIC
+Device: [HD   ]
+Message: ata0/0 image size doesn't match specified geometry
+</code></pre>
+
+<p>To avoid this, use <code>bximage</code> and record the output, the change <code>.bochsrc</code></p>
+
+<p><code>rm -f disk &amp;&amp; bximage -hd -mode=flat -size=1 disk –q</code></p>
+
+<h6>
+<a name="stack-pointer" class="anchor" href="#stack-pointer"><span class="octicon octicon-link"></span></a>Stack Pointer</h6>
+
+<p>Intel X86系列的堆栈指针指向栈顶第一个可用地址,但在bochs中不是这样. bochs的堆栈指针指向栈顶最后一个元素.</p>
+
+<hr><p><a href="index.html">Return</a></p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">demo2s maintained by <a href="https://github.com/linxiaohui">linxiaohui</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
