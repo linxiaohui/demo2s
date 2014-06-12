@@ -495,7 +495,7 @@ page_alloc(struct Page **pp)
 	if((*pp=LIST_FIRST(&page_free_list))==NULL) 
 		return -E_NO_MEM;
 	LIST_REMOVE(*pp,pp_link);
-	page_initpp(*pp);
+//	page_initpp(*pp);
 	return 0;
 	// demo2s_code_end;
 }
