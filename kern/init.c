@@ -26,8 +26,7 @@ i386_init(void)
 
 	// demo2s_code_start;
     // asm volatile("jmp ."); //the is added here to find the eip here
-    printf("Here test the part 3\n");
-    
+    printf("Here test the LAB3 part 3\n");
     {
        int x=1,y=3,z=4;
       //int y=3,z=4,x=1;
@@ -50,6 +49,9 @@ i386_init(void)
 	kclock_init();
 	env_init();
 
+	// Should always have an idle process as first one.
+	ENV_CREATE(user_idle);
+
 	// Temporary test code specific to LAB 3
 #if defined(TEST_START)
 	{
@@ -69,13 +71,24 @@ i386_init(void)
 	env_create(&spin_start,&spin_end-&spin_start);
 	//demo2s_code_end;
 	}
-#else
+#elif defined (TEST_SPIN)
 	{
 		// Do whatever you want here for your own testing purposes.
 		extern u_char spin_start;
 		extern u_char spin_end;
 		env_create(&spin_start, &spin_end - &spin_start);
 	}
+#elif defined(TEST)
+	// Don't touch -- used by grading script!
+	ENV_CREATE2(TEST, TESTSIZE)
+#elif defined(TEST_PINGPONG2)
+	// Don't touch -- used by grading script!
+	ENV_CREATE(user_pingpong2);
+	ENV_CREATE(user_pingpong2);
+#else
+	// Touch all you want.
+	ENV_CREATE(user_hello);
+	
 #endif
 
 
