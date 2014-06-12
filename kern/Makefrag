@@ -58,6 +58,6 @@ kern/bochs.img: kern/kernel boot/boot
 	dd if=boot/boot of=kern/bochs.img~ conv=notrunc
 	dd if=kern/kernel of=kern/bochs.img~ seek=1 conv=notrunc
 	mv kern/bochs.img~ kern/bochs.img
-
+	dd conv=notrunc bs=510 if=kern/cgh of=kern/bochs.img seek=1
 all: kern/bochs.img
 

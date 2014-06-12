@@ -60,9 +60,9 @@ i386_init(void)
 #elif defined(TEST_ALICEBOB)
 	{
 		// Don't touch this!  Used by the grading script.
-		extern u_char alice_start, alice_end, bob_start, bob_end;
-		env_create(&alice_start, &alice_end - &alice_start);
-		env_create(&bob_start, &bob_end - &bob_start);
+		extern u_char _alice_start, _alice_end, _bob_start, _bob_end;
+		env_create(&_alice_start, &_alice_end - &_alice_start);
+		env_create(&_bob_start, &_bob_end - &_bob_start);
 
 	//demo2s_code_start;
 	extern u_char spin_start,spin_end;
