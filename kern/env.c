@@ -295,7 +295,7 @@ env_destroy(struct Env *e)
 void
 env_pop_tf(struct Trapframe *tf)
 {
-#if 1
+#if 0
 	printf(" --> %d 0x%x\n", ENVX(curenv->env_id), tf->tf_eip);
 #endif
 

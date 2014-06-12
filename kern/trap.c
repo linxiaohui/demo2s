@@ -196,7 +196,7 @@ page_fault_handler(struct Trapframe *tf)
 
 	va = rcr2();
 	
-	print_trapframe(tf);
+	//print_trapframe(tf);
 	
 	//page fault at kernel mode
 	if(!(tf->tf_cs&0x1)) {
