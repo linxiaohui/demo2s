@@ -13,9 +13,9 @@
 #define ENVX(envid) ((envid) & (NENV - 1))
 
 /* Values of env_status in struct Env */
-#define ENV_FREE 0
-#define ENV_OK 1
-#define ENV_NOTRUNNABLE 2
+#define ENV_FREE	0
+#define ENV_RUNNABLE		1
+#define ENV_NOTRUNNABLE	2
 
 struct Env {
 	struct Trapframe env_tf;        /* Saved registers */

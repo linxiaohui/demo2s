@@ -40,6 +40,7 @@
 
 /* PDMAP is a crummy name, but I can't think of a better one.  -rsc */
 #define PDMAP		(4*1024*1024)	/* bytes mapped by a page directory entry */
+#define PDSHIFT		22		/* log2(PDMAP) */
 
 
 /* At IOPHYSMEM (640K) there is a 384K hole for I/O.  From the kernel,
@@ -51,17 +52,17 @@
 /* Page Table/Directory Entry flags
  *   these are defined by the hardware
  */
-#define PTE_P 0x1               /* Present */
-#define PTE_W 0x2               /* Writeable */
-#define PTE_U 0x4               /* User */
-#define PTE_PWT 0x8             /* Write-Through */
-#define PTE_PCD 0x10            /* Cache-Disable */
-#define PTE_A 0x20              /* Accessed */
-#define PTE_D 0x40              /* Dirty */
-#define PTE_PS 0x80             /* Page Size */
-#define PTE_MBZ 0x180           /* Bits must be zero */
-#define PTE_USER 0xe00          /* Bits for user processes */
-#define PTE_FLAGS 0xfff         /* All flags */
+#define PTE_P		0x001	/* Present */
+#define PTE_W		0x002	/* Writeable */
+#define PTE_U		0x004	/* User */
+#define PTE_PWT		0x008	/* Write-Through */
+#define PTE_PCD		0x010	/* Cache-Disable */
+#define PTE_A		0x020	/* Accessed */
+#define PTE_D		0x040	/* Dirty */
+#define PTE_PS		0x080	/* Page Size */
+#define PTE_MBZ		0x180	/* Bits must be zero */
+#define PTE_AVAIL	0xe00	/* Available for software use */
+#define PTE_FLAGS	0xfff	/* All flags */
 
 /* address in page table entry */
 #define PTE_ADDR(pte)	((u_long)(pte)&~PTE_FLAGS)
@@ -132,7 +133,9 @@
 	.byte(((base)>>16)&0xff), (0x90|(type)),             \
 		(0xc0|(((lim)>>16)&0xf)), (((base)>>24)&0xff)
 
-#else
+#else	/* not __ASSEMBLER__ */
+
+#include <inc/types.h>
 
 /* Segment Descriptors */
 struct Segdesc {
@@ -373,7 +376,7 @@ struct Pseudodesc {
 #define UTOP UENVS
 #define UXSTACKTOP (UTOP)           /* one page user exception stack */
 /* leave top page invalid to guard against exception stack overflow */ 
-#define USTACKTOP (UTOP - 2*BY2PD)   /* top of the normal user stack */
+#define USTACKTOP (UTOP - 2*BY2PG)   /* top of the normal user stack */
 #define UTEXT (2*PDMAP)
 
 /*

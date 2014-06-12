@@ -32,8 +32,8 @@
 	.globl		bootstack
 bootstack:
 	.space		KSTKSIZE
-	.globl		_bootstacktop   
-_bootstacktop:
+	.globl		bootstacktop   
+bootstacktop:
 
 ###################################################################
 # setup the GDT	
@@ -65,8 +65,10 @@ start:
 	ljmp	$CODE_SEL,$relocated		# reload CS
 relocated:
 	movl	$0x0,%ebp			# And nuke frame pointer
+
         # Leave a few words on the stack for the user trap frame UTF
-	movl	$(_bootstacktop-0x40),%esp	# set the stack pointer 
+	# XXX use sizeof(.)
+	movl	$(bootstacktop-0x40),%esp	# set the stack pointer 
 
 	/* Zero the BSS */
 	xorl	%eax,%eax			# quickest way to get zero
@@ -81,3 +83,34 @@ relocated:
 	# now to C code
 	call	i386_init
 	
+	
+###################################################################
+# exceptions/interrupts
+###################################################################
+
+/* For certain traps the CPU automatically pushes an error code, for 
+ * all other traps the IDTFUNC_NOEC() pushes a 0 in place of the error code,
+ * so the trap frame has the same format.
+ */
+#define IDTFNC(name,num)      ENTRY(name)           pushl $(num); jmp _alltraps
+#define IDTFNC_NOEC(name,num) ENTRY(name) pushl $0; pushl $(num); jmp _alltraps 
+
+
+
+.globl _clock_interrupt
+_clock_interrupt:
+	pushl	%eax		# push caller-saves
+	pushl	%ecx		#  (clock() might trash these)
+	pushl	%edx		#
+	pushl   %ds		# load kernel seg regs 
+	pushl	%es		#  saving the current contents 
+	movl $GD_KD,%eax	
+	movw %ax,%ds
+	movw %ax,%es
+	call	clock		# call C handler
+	popl	%es		# restore seg regs
+	popl	%ds
+	popl	%edx
+	popl	%ecx
+	popl	%eax
+	iret			# return to whence we came..	

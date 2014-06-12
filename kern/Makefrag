@@ -11,17 +11,22 @@ CLEAN_FILES += kern/kernel kern/bochs.img
 #KERN_LDFLAGS = -dc -dp -static -Ttext F0100020 -nostdlib -e start
 KERN_LDFLAGS := $(LDFLAGS) -Ttext F0100020 -nostdlib -e start -T kern/kernel.lds
 
+
+INIT=init
+ENV=env
+PMAP=pmap
+
 ## Only build files if they exist.
 ##
 ## locore.S must be first, so it's the 
 ## first code in the text segment!!!
 ##
 KERN_SRCFILES :=	kern/locore.S \
-			kern/init.c \
+			kern/$(INIT).c \
 			kern/console.c \
-			kern/pmap.c \
+			kern/$(PMAP).c \
 			kern/printf.c \
-			kern/env.c \
+			kern/$(ENV).c \
 			kern/kclock.c \
 			kern/picirq.c \
 			kern/trap.c \
@@ -53,6 +58,6 @@ kern/bochs.img: kern/kernel boot/boot
 	dd if=boot/boot of=kern/bochs.img~ conv=notrunc
 	dd if=kern/kernel of=kern/bochs.img~ seek=1 conv=notrunc
 	mv kern/bochs.img~ kern/bochs.img
-	dd conv=notrunc bs=510 if=kern/cgh of=kern/bochs.img seek=1
+
 all: kern/bochs.img
 

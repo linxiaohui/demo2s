@@ -16,7 +16,8 @@ PERL	:= perl
 # Compiler flags
 # Note that -O2 is required for the boot loader to fit within 512 bytes;
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
-CFLAGS	:= $(CFLAGS) -O2 -fno-builtin -I$(TOP) -MD -MP -Wall
+DEFS	:=
+CFLAGS	:= $(CFLAGS) $(DEFS) -O2 -fno-builtin -I$(TOP) -MD -MP -Wall -ggdb
 
 # Lists that the */Makefrag makefile fragments will add to
 OBJDIRS :=

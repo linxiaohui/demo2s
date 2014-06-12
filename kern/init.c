@@ -1,13 +1,14 @@
 /* See COPYRIGHT for copyright information. */
 
 #include <inc/asm.h>
-#include <inc/trap.h>
+#include <kern/trap.h>
 #include <kern/pmap.h>
 #include <kern/env.h>
 #include <kern/console.h>
 #include <kern/printf.h>
 #include <kern/picirq.h>
 #include <kern/kclock.h>
+#include <kern/sched.h>
 
 void
 i386_init(void)
@@ -17,6 +18,7 @@ i386_init(void)
 
 	printf("6828 decimal is %o octal!\n", 6828);
 
+	// Lab 2 initialization functions
 	i386_detect_memory();
 	i386_vm_init();
 	page_init();
@@ -42,6 +44,37 @@ i386_init(void)
     }
 	// demo2s_code_end;
 	    
+	// Lab 3 initialization functions
+	idt_init();
+	pic_init();
+	kclock_init();
+	env_init();
+
+	// Temporary test code specific to LAB 3
+#if defined(TEST_START)
+	{
+		// Don't touch this!  Used by the grading script.
+		extern u_char TEST_START, TEST_END;
+		env_create(&TEST_START, &TEST_END - &TEST_START);
+	}
+#elif defined(TEST_ALICEBOB)
+	{
+		// Don't touch this!  Used by the grading script.
+		extern u_char alice_start, alice_end, bob_start, bob_end;
+		env_create(&alice_start, &alice_end - &alice_start);
+		env_create(&bob_start, &bob_end - &bob_start);
+	}
+#else
+	{
+		// Do whatever you want here for your own testing purposes.
+		extern u_char spin_start;
+		extern u_char spin_end;
+		env_create(&spin_start, &spin_end - &spin_start);
+	}
+#endif
+
+
+	sched_yield();
 	panic("init.c: end of i386_init() reached!");
 }
 
