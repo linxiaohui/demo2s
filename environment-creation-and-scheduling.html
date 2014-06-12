@@ -1,1 +1,182 @@
-Environment Creation and Scheduling
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="demo2s : DemoOS: MIT OCW 6.828" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>demo2s environment creation and scheduling</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/linxiaohui/demo2s">View on GitHub</a>
+
+          <h1 id="project_title">demo2s</h1>
+          <h2 id="project_tagline">DemoOS: MIT OCW 6.828</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/linxiaohui/demo2s/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/linxiaohui/demo2s/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h2>
+<a name="bochs" class="anchor" href="#bochs"><span class="octicon octicon-link"></span></a>Bochs</h2>
+
+<p>The command <code>info idt</code> will print the current IDT. This is useful for checking whether you set it up correctly.</p>
+
+<h2>
+<a name="creating-and-running-environments" class="anchor" href="#creating-and-running-environments"><span class="octicon octicon-link"></span></a>Creating and Running Environments</h2>
+
+<p>完成与进程管理的部分函数</p>
+
+<p><code>void env_init()</code> 初始化系统维护的空闲进程控制块列表env_free_list</p>
+
+<p><code>void env_create(u_char * binary, int size)</code> 创建一个进程并加载程序的映象<br>
+binary为程序映象的起始地址<br>
+size为其长度<br>
+调用<code>env_alloc()</code>申请出一进程控制块(Env)，调用<code>load_icode()</code>加载程序映象</p>
+
+<p><code>int env_alloc(struct Env ** new, u_int pid)</code> 申请进程的进程控制块<br>
+new为返回的Env<br>
+pid为父进程的id</p>
+
+<p><code>static void load_icode(struct Env * e,u_char * binary,u_int size)</code>加载进程的代码与数据<br>
+e为进程的进程控制块<br>
+binary为程序映象的起始地址<br>
+size为映象的长度</p>
+
+<p><code>static int env_setup_vm(struct Env * e)</code> 设置一个进程的虚拟地址布局<br>
+e为进程的进程控制块</p>
+
+<p><code>void env_run(struct Env * e )</code> 运行一个进程<br>
+e为进程的进程控制块<br>
+首先需要保存当前进程的相关信息, 设置e的运行环境(cr3寄存器等),<br>
+然后调用<code>env_pop_tf</code>函数, 该函数完成加载e的运行环境及运行相应位置(eip)的代码.</p>
+
+<p>该部分的练习有助于进一步理解该操作系统的内核进程地址空间与用户进程地址空间的关系, 了解该操作系统怎么控制用户进程</p>
+
+<h2>
+<a name="clock-interrupts" class="anchor" href="#clock-interrupts"><span class="octicon octicon-link"></span></a>Clock Interrupts</h2>
+
+<p>完成时钟中断在中断描述符表的入口的设置.</p>
+
+<p><code>env_alloc()</code>创建一个进程, 设置其响应外部中断(设置进程的eflags的FL_IF位),<br>
+并利用宏SETGATE设置IDT, 将所提供的时钟中断处理函数与时钟中断对应</p>
+
+<p>宏<code>SETGATE(gate,istrap,ss,off,dpl)</code><br><code>gate</code>为要设置的门描述符, 使用时应为IDT数组的某一值<br><code>istrap</code>代表将其设置成陷阱门(1) 或中断门(0). 经中断门相应的中断会复位CPU eflags寄存器的IF位来避免其他中断干扰当前中断处理<br><code>ss</code> 为中断处理函数所在段的选择子<br><code>off</code> 为中断处理函数的偏移<br><code>dpl</code> 为该中断门(陷阱门)设置的Discriptor Privilege Level</p>
+
+<h3>
+<a name="qa" class="anchor" href="#qa"><span class="octicon octicon-link"></span></a>Q&amp;A</h3>
+
+<h5>
+<a name="instruction-count" class="anchor" href="#instruction-count"><span class="octicon octicon-link"></span></a>Instruction Count</h5>
+
+<ol>
+<li><p>How many instruction of user code are executed between each interrupt?<br>
+经实验运行的结果是两次时钟中断之间执行的用户代码的条数为126条</p></li>
+<li><p>How many instruction of kernel code are executed to handle the interrupt?<br>
+经实验运行的结果是两次时钟中断之间执行的内核代码的条数为15000-126条</p></li>
+</ol><p>实验方法如下<br>
+在<code>kern/locore.S</code>的<code>_clock_interrupt</code>函数的第一条代码前加一条语句<code>jmp .</code>,<br>
+然后编译运行<code>bochs</code>当其陷入死循环时Ctrl+C至bochs的debugger中<code>info r</code>找到<code>%eip</code>的值,此值即为时钟中断处理函数的入口地址.<br>
+用户代码的入口地址为 001b:0x00800020, 在这两个地方设置断点, 然后运行统计bochs debugger中显示的已执行指令的条数(t=?)</p>
+
+<h2>
+<a name="generalized-interruptexception-handling" class="anchor" href="#generalized-interruptexception-handling"><span class="octicon octicon-link"></span></a>Generalized interrupt/exception handling</h2>
+
+<p>编写通用的中断处理函数和派发程序, 为所支持的中断或异常设置在中断描述符表IDT中的入口   </p>
+
+<p>在<code>locaore.S</code>文件中利用宏<code>IDTFNC</code>或<code>IDTFNV_NOEC</code>定义所有中断处理函数.<br>
+所有中断处理函数的流程是相同的: 首先向栈中压入错误代码(用宏IDTFNC)或压入0(没有错误代码，用宏IDTFNC_NOEC),<br>
+然后压入中断向量号(IDT的索引). 然后作相同的事情, 保存当前运行环境,<br>
+调用<code>trap()</code> (<code>kern/trap.c</code>). trap根据前面压入的中断向量号来派发处理程序. trap返回后,恢复前面保存的运行环境.</p>
+
+<h3>
+<a name="qa-1" class="anchor" href="#qa-1"><span class="octicon octicon-link"></span></a>Q&amp;A</h3>
+
+<h5>
+<a name="1how-do-you-know-when-you-pass-a-test-case-what-output-did-you-see-and-why" class="anchor" href="#1how-do-you-know-when-you-pass-a-test-case-what-output-did-you-see-and-why"><span class="octicon octicon-link"></span></a>1.How do you know when you pass a test case? What output did you see and why?</h5>
+
+<p>运行<code>grade.sh</code>, 如果显示的每一个测试部分的结果都是OK并且最后显示的分数是50/50,则可以认为没有明显错误.<br>
+否则,在某些部分有错.</p>
+
+<p><code>grade.sh</code><br><code>kern/init.c</code>中检测是否定义宏<code>TEST_START</code>, 若定义则创建进程<code>TEST_START</code>.<br>
+而在grade.sh的测试中对不同的case, 通过命令行传入宏定义
+(_div0, _brkpt, _badds, _pgfault_rd_nopage, _pgfault_rd_noperms, _pgfault_wr_nopage、_pgfault_wr_noperms,
+在<code>kern/lab3.S</code>中定义了相关函数，分别检测除0错误、断点、页错误等).<br>
+然后运行bochs检查其输出.</p>
+
+<h5>
+<a name="23-the-break-point-test-case-will-either-generate-a-break-point-exception-or-a-general-protect-fault-depending-on-how-you-initialized-the-break-point-entry-in-the-idt-ie-your-call-to-setgate-from-idt_init-which-did-you-see-change-your-code-to-generate-the-other-what-do-you-think-is-the-point-of-these-mechanisms-hint-consider-what-would-happen-if-the-user-code-executed-int-0x20" class="anchor" href="#23-the-break-point-test-case-will-either-generate-a-break-point-exception-or-a-general-protect-fault-depending-on-how-you-initialized-the-break-point-entry-in-the-idt-ie-your-call-to-setgate-from-idt_init-which-did-you-see-change-your-code-to-generate-the-other-what-do-you-think-is-the-point-of-these-mechanisms-hint-consider-what-would-happen-if-the-user-code-executed-int-0x20"><span class="octicon octicon-link"></span></a>2&amp;3. The break point test case will either generate a break point exception or a general protect fault depending on how you initialized the break point entry in the idt (i.e., your call to SETGATE from idt_init). Which did you see? Change your code to generate the other. What do you think is the point of these mechanisms? (hint: consider what would happen if the user code executed "int $0x20")</h5>
+
+<p>若是中断调用指令<code>int</code>或溢出中断指令<code>into</code>引发的异常处理,<br>
+需要检查中断门或者陷阱门描述符的DPL是否满足DPL&gt;=CPL,<br>
+如果不满足则引发"通用保护故障"(general protect fault).   </p>
+
+<p>断点测试( break point test case)发生在用户进程中,CPL=3,<br>
+所以要看到 a break point exception, 将IDT[3]的DPL设成3, 要看到general protect fault, 将其设置成0</p>
+
+<p>IDT的设置是在<code>kern/trap.c</code>的<code>idt_init()</code>中, 利用<code>SETGATE</code>宏完成.</p>
+
+<p>如果用户执行<code>int $0x20</code>, 0x20是时钟中断的处理程序，其IDT设置dpl为0, 故会产生 a general protect fault   </p>
+
+<h5>
+<a name="4-what-is-the-purpose-of-having-an-individual-handler-function-for-each-exceptioninterrupt-ie-if-all-exceptionsinterrupts-were-delivered-to-the-same-handler-what-functionality-that-exists-in-the-current-implementation-could-not-be-provided" class="anchor" href="#4-what-is-the-purpose-of-having-an-individual-handler-function-for-each-exceptioninterrupt-ie-if-all-exceptionsinterrupts-were-delivered-to-the-same-handler-what-functionality-that-exists-in-the-current-implementation-could-not-be-provided"><span class="octicon octicon-link"></span></a>4. What is the purpose of having an individual handler function for each exception/interrupt? (i.e., if all exceptions/interrupts were delivered to the same handler, what functionality that exists in the current implementation could not be provided?)</h5>
+
+<p>将每个中断设置一个中断处理函数的一个明显的原因是区分可屏蔽中断和不可屏蔽中断(NMI). 
+有些中断有错误码,有些中断没有错误码. </p>
+
+<h2>
+<a name="pre-emptive-mulitasking" class="anchor" href="#pre-emptive-mulitasking"><span class="octicon octicon-link"></span></a>Pre-emptive Mulitasking</h2>
+
+<p><code>sched_yield()</code> (<code>kern/sched.c</code>) 实现用<code>round-robin</code>算法进行进程调度。</p>
+
+<h5>
+<a name="1-examine-the-code-to-alice-and-bob-in-lab3s-what-is-the-purpose-of-alice-and-bob-code" class="anchor" href="#1-examine-the-code-to-alice-and-bob-in-lab3s-what-is-the-purpose-of-alice-and-bob-code"><span class="octicon octicon-link"></span></a>1. Examine the code to "alice" and "bob" in lab3.S. What is the purpose of "alice" and "bob" code?</h5>
+
+<p>这两个程序分别将一些寄存器设成不同的值, 然后循环检查, 若有不一致, 则跳转到产生产生除法错的指令</p>
+
+<h5>
+<a name="2-if-two-copies-of-alice-were-run-instead-of-running-alice-and-bob-what-mistake-in-the-register-savingrestoring-code-would-go-undetected" class="anchor" href="#2-if-two-copies-of-alice-were-run-instead-of-running-alice-and-bob-what-mistake-in-the-register-savingrestoring-code-would-go-undetected"><span class="octicon octicon-link"></span></a>2. If two copies of "alice" were run (instead of running "alice" and "bob"), what mistake in the register saving/restoring code would go undetected?</h5>
+
+<p>如果两个alice运行, 将不能区分寄存器是alice0保存的还是alice1保存的. 因此, 将不能检测程序是否正确的保存了环境.</p>
+
+<h5>
+<a name="3-in-your-implementation-of-env_run-you-should-have-called-lcr3-but-before-and-after-the-call-to-lcr3-your-code-makes-references-at-least-it-should-to-the-variable-e--the-argument-to-env_run-how-can-this-work" class="anchor" href="#3-in-your-implementation-of-env_run-you-should-have-called-lcr3-but-before-and-after-the-call-to-lcr3-your-code-makes-references-at-least-it-should-to-the-variable-e--the-argument-to-env_run-how-can-this-work"><span class="octicon octicon-link"></span></a>3. In your implementation of env_run() you should have called lcr3(). But before and after the call to lcr3(), your code makes references (at least it should) to the variable e--the argument to env_run. How can this work?</h5>
+
+<p>e在内核地址空间, 该操作系统的每个进程的页目录中都有相同的内核地址空间的信息, 因此e能够正确寻址</p>
+
+<h2>
+<a name="touble-shooting" class="anchor" href="#touble-shooting"><span class="octicon octicon-link"></span></a>Touble Shooting</h2>
+
+<h3>
+<a name="bochs%E8%B0%83%E8%AF%95%E5%91%BD%E4%BB%A4" class="anchor" href="#bochs%E8%B0%83%E8%AF%95%E5%91%BD%E4%BB%A4"><span class="octicon octicon-link"></span></a>bochs调试命令</h3>
+
+<p>在统计bochs在两次时钟中断之间执行多少指令时, 设置断点时用<code>vb</code>命令, 指定cs的段选择子时不是只要选择子的偏移对了即可, 必须指定其值(包括权限)</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">demo2s maintained by <a href="https://github.com/linxiaohui">linxiaohui</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>

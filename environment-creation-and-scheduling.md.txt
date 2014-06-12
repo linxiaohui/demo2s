@@ -1,0 +1,122 @@
+## Bochs
+
+The command `info idt` will print the current IDT. This is useful for checking whether you set it up correctly.
+
+
+## Creating and Running Environments
+完成与进程管理的部分函数
+
+`void env_init()` 初始化系统维护的空闲进程控制块列表env_free_list
+
+`void env_create(u_char * binary, int size)` 创建一个进程并加载程序的映象  
+binary为程序映象的起始地址   
+size为其长度   
+调用`env_alloc()`申请出一进程控制块(Env)，调用`load_icode()`加载程序映象
+
+`int env_alloc(struct Env ** new, u_int pid)` 申请进程的进程控制块  
+new为返回的Env  
+pid为父进程的id
+
+`static void load_icode(struct Env * e,u_char * binary,u_int size)`加载进程的代码与数据   
+e为进程的进程控制块   
+binary为程序映象的起始地址   
+size为映象的长度
+
+`static int env_setup_vm(struct Env * e)` 设置一个进程的虚拟地址布局   
+e为进程的进程控制块
+
+`void env_run(struct Env * e )` 运行一个进程   
+e为进程的进程控制块  
+首先需要保存当前进程的相关信息, 设置e的运行环境(cr3寄存器等),    
+然后调用`env_pop_tf`函数, 该函数完成加载e的运行环境及运行相应位置(eip)的代码.
+
+
+该部分的练习有助于进一步理解该操作系统的内核进程地址空间与用户进程地址空间的关系, 了解该操作系统怎么控制用户进程
+
+
+## Clock Interrupts
+完成时钟中断在中断描述符表的入口的设置.
+
+`env_alloc()`创建一个进程, 设置其响应外部中断(设置进程的eflags的FL_IF位),    
+并利用宏SETGATE设置IDT, 将所提供的时钟中断处理函数与时钟中断对应
+
+宏`SETGATE(gate,istrap,ss,off,dpl)`   
+`gate`为要设置的门描述符, 使用时应为IDT数组的某一值   
+`istrap`代表将其设置成陷阱门(1) 或中断门(0). 经中断门相应的中断会复位CPU eflags寄存器的IF位来避免其他中断干扰当前中断处理   
+`ss` 为中断处理函数所在段的选择子   
+`off` 为中断处理函数的偏移   
+`dpl` 为该中断门(陷阱门)设置的Discriptor Privilege Level
+
+### Q&A
+##### Instruction Count
+1. How many instruction of user code are executed between each interrupt?   
+   经实验运行的结果是两次时钟中断之间执行的用户代码的条数为126条
+
+2. How many instruction of kernel code are executed to handle the interrupt?   
+   经实验运行的结果是两次时钟中断之间执行的内核代码的条数为15000-126条
+
+实验方法如下   
+在`kern/locore.S`的`_clock_interrupt`函数的第一条代码前加一条语句`jmp . `,   
+然后编译运行`bochs`当其陷入死循环时Ctrl+C至bochs的debugger中`info r`找到`%eip`的值,此值即为时钟中断处理函数的入口地址.     
+用户代码的入口地址为 001b:0x00800020, 在这两个地方设置断点, 然后运行统计bochs debugger中显示的已执行指令的条数(t=?)
+
+
+## Generalized interrupt/exception handling
+编写通用的中断处理函数和派发程序, 为所支持的中断或异常设置在中断描述符表IDT中的入口   
+
+在`locaore.S`文件中利用宏`IDTFNC`或`IDTFNV_NOEC`定义所有中断处理函数.   
+所有中断处理函数的流程是相同的: 首先向栈中压入错误代码(用宏IDTFNC)或压入0(没有错误代码，用宏IDTFNC_NOEC),   
+然后压入中断向量号(IDT的索引). 然后作相同的事情, 保存当前运行环境,    
+调用`trap()` (`kern/trap.c`). trap根据前面压入的中断向量号来派发处理程序. trap返回后,恢复前面保存的运行环境.
+
+### Q&A
+
+##### 1.How do you know when you pass a test case? What output did you see and why?   
+运行`grade.sh`, 如果显示的每一个测试部分的结果都是OK并且最后显示的分数是50/50,则可以认为没有明显错误.    
+否则,在某些部分有错.
+
+`grade.sh`   
+`kern/init.c`中检测是否定义宏`TEST_START`, 若定义则创建进程`TEST_START`.    
+而在grade.sh的测试中对不同的case, 通过命令行传入宏定义
+(_div0, _brkpt, _badds, _pgfault_rd_nopage, _pgfault_rd_noperms, _pgfault_wr_nopage、_pgfault_wr_noperms,
+在`kern/lab3.S`中定义了相关函数，分别检测除0错误、断点、页错误等).    
+然后运行bochs检查其输出.
+
+##### 2&3. The break point test case will either generate a break point exception or a general protect fault depending on how you initialized the break point entry in the idt (i.e., your call to SETGATE from idt_init). Which did you see? Change your code to generate the other. What do you think is the point of these mechanisms? (hint: consider what would happen if the user code executed "int $0x20")   
+若是中断调用指令`int`或溢出中断指令`into`引发的异常处理,    
+需要检查中断门或者陷阱门描述符的DPL是否满足DPL>=CPL,   
+如果不满足则引发"通用保护故障"(general protect fault).   
+
+断点测试( break point test case)发生在用户进程中,CPL=3,   
+所以要看到 a break point exception, 将IDT[3]的DPL设成3, 要看到general protect fault, 将其设置成0
+
+
+IDT的设置是在`kern/trap.c`的`idt_init()`中, 利用`SETGATE`宏完成.
+
+如果用户执行`int $0x20`, 0x20是时钟中断的处理程序，其IDT设置dpl为0, 故会产生 a general protect fault   
+
+##### 4. What is the purpose of having an individual handler function for each exception/interrupt? (i.e., if all exceptions/interrupts were delivered to the same handler, what functionality that exists in the current implementation could not be provided?)    
+将每个中断设置一个中断处理函数的一个明显的原因是区分可屏蔽中断和不可屏蔽中断(NMI). 
+有些中断有错误码,有些中断没有错误码. 
+
+
+## Pre-emptive Mulitasking
+`sched_yield()` (`kern/sched.c`) 实现用`round-robin`算法进行进程调度。
+
+##### 1. Examine the code to "alice" and "bob" in lab3.S. What is the purpose of "alice" and "bob" code?
+
+这两个程序分别将一些寄存器设成不同的值, 然后循环检查, 若有不一致, 则跳转到产生产生除法错的指令
+
+##### 2. If two copies of "alice" were run (instead of running "alice" and "bob"), what mistake in the register saving/restoring code would go undetected?
+
+如果两个alice运行, 将不能区分寄存器是alice0保存的还是alice1保存的. 因此, 将不能检测程序是否正确的保存了环境.
+
+##### 3. In your implementation of env_run() you should have called lcr3(). But before and after the call to lcr3(), your code makes references (at least it should) to the variable e--the argument to env_run. How can this work?
+
+e在内核地址空间, 该操作系统的每个进程的页目录中都有相同的内核地址空间的信息, 因此e能够正确寻址
+
+    
+## Touble Shooting
+
+### bochs调试命令
+在统计bochs在两次时钟中断之间执行多少指令时, 设置断点时用`vb`命令, 指定cs的段选择子时不是只要选择子的偏移对了即可, 必须指定其值(包括权限)

@@ -1,0 +1,212 @@
+0. indent参数
+
+indent -bl -blf -npsl -bli0 -sob -nut -ts4 -i4 {} \;
+
+find . -name "*.[ch]" -exec indent -bl -blf -npsl -bli0 -sob -nut -ts4 -i4 {} \;
+find . -name "*.[ch]~" -exec rm -f {} \;
+
+1. 配置 bochs
+ERROR: X windows gui was selected, but X windows libraries were not found.
+./configure --with-nogui
+
+若需要GUI
+安装X库
+sudo zypper install xorg-x11-devel
+```
+symbols.cc: At global scope:
+symbols.cc:135:10: error: ‘hash_map’ does not name a type
+   static hash_map<int,context_t*>* map;
+          ^
+symbols.cc:143:1: error: ‘hash_map’ does not name a type
+ hash_map<int,context_t*>* context_t::map = new hash_map<int,context_t*>;
+ ^
+symbols.cc: In constructor ‘context_t::context_t(Bit32u)’:
+symbols.cc:150:5: error: ‘map’ was not declared in this scope
+   (*map)[id] = this;
+     ^
+symbols.cc: In static member function ‘static context_t* context_t::get_context(Bit32u)’:
+symbols.cc:171:12: error: ‘map’ was not declared in this scope
+   return (*map)[i];
+            ^
+make[1]: *** [symbols.o] 错误 1
+```
+
+修改bochs代码
+
+vi bx_debug/symbols.cc
+
+using namespace __gnu_cxx;
+
+./configure --enable-debugger --enable-disasm --enable-iodebug --enable-readline 
+
+./configure --enable-debugger --enable-disasm --enable-iodebug --enable-readline --with-nogui
+
+readline-devel-32bit  或 readline-devel
+
+
+解压缩后，将disasm文件夹下disasm.h文件中的set_syntax_intel()（第157行）改成set_syntax_att()。 然后安装，这样debugger中反汇编出的汇编指令就是AT&T语法格式了。
+
+2. bximage
+
+
+
+
+4. Q&A
+
+
+ -fno-ident   .comment section wasn't generated
+ 
+ ld: kernel0：无法在 a.out 对象文件格式中表示节“.eh_frame”
+
+-fno-asynchronous-unwind-tables
+
+
+ strip --remove-section=.eh_frame --remove-section=.eh_frame_ptr kernel.o
+ strip --remove-section=.rodata --remove-section=.note.GNU-stack kernel.o
+ 
+ld: kern/kernel：无法在 a.out 对象文件格式中表示节“.text.unlikely”
+
+-freorder-functions
+
+undefined reference to `__udivdi3'
+(http://www.cnblogs.com/wuyuegb2312/articles/2577501.html)
+
+ld: i386 architecture of input file `boot/boot.o' is incompatible with i386:x86-64 output
+
+try adding -melf_i386 to the flags you pass to ld and -m32 to the flags you pass to the C compiler.
+
+
+
+
+==============================
+
+
+## PC Bootstrap
+
+### Boot Time
+
+`make ex1.disk`
+
+The IBM PC starts executing at CS = 0xf000 and IP = 0xfff0
+
+The PC hardware is set up so that the address range 0xf0000 - 0xfffff contains the BIOS (Basic Input/Output System). 
+
+On reset, the processor sets CS to 0xf000 and the IP to 0xfff0, and consequently, execution begins at that (CS:IP) segment address
+
+hexdump -x BIOS-bochs-latest : 0xf000:0xfff0位置的指令时BIOS的(BIOS的最后16字节)
+
+When the BIOS runs, it sets up an interrupt descriptor table, initializes devices and searches for a bootable device (e.g., a floppy, hard drive, CDROM). When it finds a bootable devices, the BIOS loads the first sector (512 bytes) into memory at address 0x7c00 - 0x7d00 and sets CS:IP to 0000:7c00
+
+
+
+### Bochs操作
+
+`info registers`
+`dump_cpu`
+`b 0x7c00`
+`c`
+`x /10w 0x7c00`
+
+
+1)	反汇编0x7c00处的代码,观察其是否与ex1.S相符
+步骤: make ex1.disk后,运行bochs,用b 0x7c00在0x7c00处设置一断点,然后c继续运行, 然后u/5 反汇编之后的5条指令,经观察发现,与ex1.S相符合.
+2)	单步执行,观察结果
+用命令s单步执行,其执行流程与ex1.S相符.
+3)	经观察发现NOP指令的机器码为0x90.
+4)	jmp start的机器码为0xe9f9ff,查阅the The IA-32 Intel Architecture Software Developer’s Manual, 
+Volume 2: Instruction Set Reference (第366页)知,e9为短跳转的机器码,f9ff为偏移. 
+由于Intel结构是little endian,即一个字的高字节放在高位,低字节放在低位,所以上面的偏移代表0xff9f,转化成十进制为-7.
+该偏移量相对与jmp指令的尾部,因为上面的jmp指令三个字节,前面4个NOP指令各占一个字节.
+
+### Link vs. Load Address
+   1) 单步执行,当movl $here,%eax执行后,EAX的值为 0x7c01.
+   2) ‘jmp *%eax’ 的功能是跳转到以eax内容为地址的内存处. 执行该指令前cs:eip=0x0:0x7c0a,执行该指令后cs:eip=0x0:0x7c01
+   3)  因为代码movl $here,%eax汇编后$here被汇编成常数,该常数与link address相关,而若其load  address不等于link address的话,%eax不能得到正确的值,因而不能跳转到正确的地址.
+   4)  ex1.S中, jmp start语句是近跳转,汇编后产生的指令是相对跳转指令.
+   5)  Makefile中的BOOTADDR参数,直接影响"movl $here,%eax"后eax的值.具体说来,eax的值是BOOTADDR+1. 据此,我以为link address就是ld(link程序) 假设程序会被load到该地址执行因而对程序中的符号汇编成常数时会以link address为准.
+
+
+### Bochs Disk Images
+`xxd -g 1 -a disk`
+1) 更改 makefile中的BOOTADDR,movl $here,%eax 语句产生的指令将有变化. 如果BIOS将磁盘映象load到另一地方,disk image的内容是不会变的. 因为boot loader的功能就是将磁盘映象装入内存,它不会更改其内容.
+2) 磁盘映象的建立过程:makefile文件中的命令产生磁盘映象文件. 我已经将其更改成用bximage生成(本质上是一样的,都是生成一个全是0的文件,不过bximage生成的文件其geometry符合.bochsrc中的描述.)
+
+
+### Initializing the Stack
+2.	call指令将返回地址压入栈中. 在执行该指令前ss:esp=0x0:0x7c00,对应的内容为0xc031(没有意义).执行该指令后ss:esp=0x0:0x7bfe,对应的内容为0x7c0a.可见0x7c0a被压入栈中.该值是由load address和代码决定的.
+3.	ret 指令将栈顶的值弹出(esp将加2)作为返回地址返回. 在执行该指令前ss:esp=0x0:0x7bfe,对应的内容为0x7c0a.执行该指令后ss:esp=0x0:0x7c00,对应的内容为0xc031(没有意义). 
+4.	栈在boot sector's code之前(低地址).它们相邻.
+5.	如果ex3被加载到内存的其他地方,堆栈与代码的位置将发生变化.程序的运行结果是不变的.(排除堆栈与核心代码重叠破坏核心代码的情况)。
+
+### The boot loader
+概括的说boot loader的任务是将CPU设置成在保护模式下,并将系统核心（从硬盘）调入内存中某一位置.通过阅读boot.S,不难理解其工作流程. 只需注意两点：A20与cr0
+A20是地址线,开机时默认是关闭的,需要打开.否则第20位地址总是0. 打开的方法是读写8042的控制寄存器和数据寄存器.(具体方法boot.S中很清楚,不再赘述)
+cr0的第0位决定着CPU是否运行在保护模式下。
+
+修改bootc.c使其能正常工作,其实就是设置好cs和ds指向的段描述符. 结合x86在保护模式下段寻址的方式,我采取的方法是:将kernel中的link address信息(即其a.out的header中的a_entry)的最高字节的相反数赋给cs和ds指向的段描述符.
+  tmp=hdr->a_entry & 0xff000000;
+  tmp*=-1;
+  cseg[1]&=0xffffff;//just in case
+  cseg[1]|=tmp;
+  dseg[1]&=0xffffff;//just in case
+  dseg[1]|=tmp;
+这样,经过段寻址机制后得到的物理地址(严格的说应该是线性地址)即为kernel所被装载的地址.
+
+
+## Calling Conventions
+
+实现int setjmp(jmp_buf env)、void longjmp(jmp_buf env, int)函数
+这两个函数能够实现函数间的跳跃. setjmp的功能是将当前CPU的状态(主要指寄存器)保存在env中(一个数据结构).env中保存了setjmp的返回地址,以供longjmp返回时使用.解决这一问题,关键是理解gcc的调用规范. 调用函数时调用者将参数压入栈中,然后call子程序.call指令将返回地址压入栈中转移值子程序. 子程序返回时(ret指令执行时) 从栈顶取出返回地址,执行流程转移到那里. 具体实现见jmp.S文件. 需要特别注意的是bochs的堆栈指针(esp)的指向问题.
+
+1.	根据gcc调用规范EAX, ECX, 和EDX是调用者负责保存的,因此setjmp不需要保存.
+2.	当setjmp函数被调用时，它保存的程序执行点环境，只在当前的函数作用域以内才会有效。如果函数返回了(活动记录消失了)，那么setjmp保存的程序的环境也将无效.这时如果调用longjmp的话,其会返回对当前来说是错误的地址.这样是不正确的，甚至会引发程序崩溃。因此在此过程中setjmp的调用者不能返回.
+
+
+jmp.s 
+
+.code32
+.globl _setjmp828, _longjmp828, setjmp828, longjmp828
+
+setjmp828:
+_setjmp828:
+	movl 4(%esp),%eax      # Get env, which is function argument 1.  Copy it into a register.
+	movl %ebp,(%eax)       # Copy %ebp into env->ebp
+	movl %ebx,4(%eax)      # Copy %ebx into env->ebx
+	movl %esi,8(%eax)      # Copy %esi into env->esi
+	movl %edi,12(%eax)     # Copy %edi into env->edi
+	movl %esp,16(%eax)     # Copy %esp into env->esp
+	movl (%esp),%ecx
+	movl %ecx,20(%eax)     # Copy the return address into %ret
+	movl $0,%eax           # Return 0
+	ret
+
+longjmp828:
+_longjmp828:
+	# Reconstruct the state setted in _setjmp828.
+	movl 4(%esp),%eax     # Get env, which is function argument 1.  Copy it into a register.
+	movl (%eax),%ebp
+	movl 4(%eax),%ebx
+	movl 8(%eax),%esi
+	movl 12(%eax),%edi
+	movl 8(%esp),%edx     # return value
+	movl 16(%eax),%esp    # reset esp
+	movl 20(%eax),%ecx
+	movl %ecx,(%esp)
+	movl %edx,%eax
+	ret
+
+	
+
+## Misc
+
+ata0-master: type=disk, mode=flat, path="./disk", cylinders=2, heads=16, spt=63
+注： 关于clinders、heads、spt（sectors per trace）这些参数描述了bochs的“硬盘”（一个磁盘映象文件文件），如果这些参数与提供给bochs的“硬盘”不符，bochs会提示：
+Event type: PANIC
+Device: [HD   ]
+Message: ata0/0 image size doesn't match specified geometry
+在这个实验中，这不会导致错误；但据bochs的帮助文档，PANIC可能会引发不可预料的错误；因此，为了严谨起见，bochs的硬盘应该与配置文件的描述相符合。 利用bximage（与bochs一同安装）解决。利用bximage产生一个“硬盘”，且记下输出的对该硬盘的描述，更改.bochsrc。将Makefile中的dd count=512 if=/dev/zero of=disk（这是不用bximage制作bochs”硬盘“的方法） 注释掉，改成	
+rm -f disk
+bximage -hd -mode=flat -size=1 disk –q
+	(rm –f disk 是为了不让bximage出现覆盖确认信息)
+
+	Intel X86系列的堆栈指针指向栈顶第一个可用地址,但在bochs中不是这样. bochs的堆栈指针指向栈顶最后一个元素.
