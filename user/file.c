@@ -55,16 +55,56 @@ fd_lookup(int fd, struct Fileinfo **fi)
 int
 open(const char *path, int mode)
 {
-	// Your code here.
-	panic("open() unimplemented!");
+	//demo2s_code_start;
+	int 	fd;
+	int 	r;
+	u_int 	fbno;
+	u_int 	i;
+	struct Fileinfo * 	finfo;
+	//find an unused file descriptor
+	if((fd=fd_alloc(&finfo))<0)
+		return fd;
+	//make an IPC request to file server to open a file
+	if((r=fsipc_open(path,mode,&(finfo->fi_fileid),&(finfo->fi_size)))<0)
+		return r;
+	finfo->fi_omode	 = mode;
+	finfo->fi_offset = 0;
+	//map all the pages 
+	fbno = (finfo->fi_size+BY2BLK-1)/BY2BLK;
+	for(i=0;i<fbno;i++)
+		if((r=fsipc_map(finfo->fi_fileid,i,finfo->fi_va+i*BY2BLK))<0)
+			// those already mapped?
+			return r;
+	return fd;
+	//demo2s_code_end;
 }
 
 // Close a file descriptor
 int
 close(int fd)
 {
-	// Your code here.
-	panic("close() unimplemented!");
+	//demo2s_code_start;
+	int 	r;
+	u_int 	fbno;
+	u_int 	i;
+	struct Fileinfo * 	fi;
+	if((r=fd_lookup(fd,&fi))<0)
+		return r;
+	//notify the file server pages that has been modified
+	fbno = (fi->fi_size+BY2BLK-1)/BY2BLK;
+	for(i=0;i<fbno;i++)
+		if(vpt[fi->fi_va/BY2PG+i]&PTE_D)
+			fsipc_dirty(fi->fi_fileid,i);
+	//make a request to close the file
+	if((r=fsipc_close(fi->fi_fileid))<0)
+		return r;
+	//unmap all mapped pages in the reserved file-mapping region
+	for (i =0; i <PDMAP; i+=BY2PG)
+		if ((r = sys_mem_unmap(0, fi->fi_va+i)) < 0)
+			panic("close: sys_mem_unmap %08x: %e",
+				fi->fi_va+i, r);
+	return 0;
+	//demo2s_code_end;
 }
 
 // Read 'n' bytes from 'fd' at the current seek position into 'buf'.

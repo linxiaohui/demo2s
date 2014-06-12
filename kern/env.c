@@ -160,7 +160,8 @@ env_alloc(struct Env **new, u_int parent_id)
 	e->env_tf.tf_eip=UTEXT+0x20;
 	
 	e->env_tf.tf_eflags |= FL_IF;//interrupt 
-	//e->env_tf.tf_eflags = 0;
+	if((e-envs) == 1)	//the file system environment
+		e->env_tf.tf_eflags |= FL_IOPL0|FL_IOPL1;
 	//demo2s_code_end;
 	
 	e->env_ipc_recving = 0;
@@ -204,7 +205,7 @@ load_icode(struct Env *e, u_char *binary, u_int size)
 	//demo2s_code_start;
   struct Page * p;
   int i,n;
-  n=(size+BY2PG-1)/BY2PG;
+	n=ROUND(size,BY2PG)/BY2PG;
   
   if(page_alloc(&p)!=0)
     return;
@@ -233,7 +234,6 @@ env_create(u_char *binary, int size)
     return;
   }
 
-  printf("alloc env success\t%d\n",e-envs);
 
   load_icode(e,binary,size);
 	//demo2s_code_end;

@@ -95,8 +95,27 @@ serve_map(u_int envid, struct Fsreq_map *rq)
 {
 	if (debug) printf("serve_map %08x %08x %08x\n", envid, rq->req_fileid, rq->req_offset);
 
-	// Your code here
-	panic("serve_map not implemented");
+//demo2s_code_start;
+	int 	fileid;
+	int 	r;
+	u_int 	offset;
+	u_int* 	dva;
+	struct Open * 	o;
+	fileid = rq->req_fileid;
+	offset = rq->req_offset;//the offset of the block
+	if(fileid>=MAXOPEN) {
+		r = -E_INVAL;
+	}
+	else {
+		o = opentab+fileid;
+		if(o->o_file==0)
+			r = -E_INVAL;
+		else
+			r = file_get_block(o->o_file,offset,&dva);
+	}
+	//return the result
+	ipc_send(envid,r,dva,PTE_W|PTE_U|PTE_P);
+//demo2s_code_end;
 }
 
 void
@@ -104,8 +123,25 @@ serve_set_size(u_int envid, struct Fsreq_set_size *rq)
 {
 	if (debug) printf("serve_set_size %08x %08x %08x\n", envid, rq->req_fileid, rq->req_size);
 
-	// Your code here
-	panic("serve_set_size not implemented");
+//demo2s_code_start;
+	int 	fileid;
+	int 	r;
+	u_int 	size;
+	struct Open * 	o;
+	fileid = rq->req_fileid;
+	size   = rq->req_size;
+	if(fileid>=MAXOPEN)
+		r = -E_INVAL;
+	else {
+		o = opentab+fileid;
+		if(o->o_file==0)
+			r = -E_INVAL;
+		else
+			r = file_set_size(o->o_file,size);
+	}
+	//return the result
+	ipc_send(envid,r,0,0);
+	//demo2s_code_end;
 }
 
 void
@@ -113,8 +149,25 @@ serve_close(u_int envid, struct Fsreq_close *rq)
 {
 	if (debug) printf("serve_close %08x %08x\n", envid, rq->req_fileid);
 
-	// Your code here
-	panic("serve_close not implemented");
+//demo2s_code_start;
+	int 		fileid;
+	int 		r;
+	struct Open * 	o;
+	fileid = rq->req_fileid;
+	if(fileid>=MAXOPEN)
+		r = -E_INVAL;
+	else {
+		o = opentab+fileid;
+		r = 0;
+		if(o->o_file==0)
+			r = -E_INVAL;
+		else
+			file_close(o->o_file);
+	}
+	o->o_file = 0;
+	//return the result
+	ipc_send(envid,r,0,0);
+	//demo2s_code_end;
 }
 
 void
@@ -122,8 +175,17 @@ serve_remove(u_int envid, struct Fsreq_remove *rq)
 {
 	if (debug) printf("serve_map %08x %s\n", envid, rq->req_path);
 
-	// Your code here
-	panic("serve_remove not implemented");
+//demo2s_code_start;
+	u_char path[MAXPATHLEN];
+	int r;
+	// Copy in the path, making sure it's null-terminated
+	bcopy(rq->req_path, path, MAXPATHLEN);
+	path[MAXPATHLEN-1] = 0;
+	r = file_remove(path);
+	//return the result
+	ipc_send(envid,r,0,0);
+	
+	//demo2s_code_end;
 }
 
 void
@@ -131,8 +193,24 @@ serve_dirty(u_int envid, struct Fsreq_dirty *rq)
 {
 	if (debug) printf("serve_dirty %08x %08x %08x\n", envid, rq->req_fileid, rq->req_offset);
 
-	// Your code here
-	panic("serve_dirty not implemented");
+//demo2s_code_start;
+	int 	fileid;
+	int 	r;
+	u_int 	offset;
+	struct Open * 	o;
+	fileid = rq->req_fileid;
+	offset = rq->req_offset;//the offset of the block
+	if(fileid>=MAXOPEN)
+		r = -E_INVAL;
+	else {
+		o = opentab+fileid;
+		if(o->o_file==0)
+			r = -E_INVAL;
+		else
+			r = file_dirty(o->o_file,offset);
+	}
+	ipc_send(envid,r,0,0);
+//demo2s_code_end;
 }
 
 void
@@ -156,8 +234,7 @@ serve(void)
 
 		// All requests must contain an argument page
 		if (!(perm & PTE_P)) {
-			printf("Invalid request from %08x: no argument page\n",
-				whom);
+			printf("Invalid request from %08x: no argument page\n",whom);
 			continue; // just leave it hanging...
 		}
 

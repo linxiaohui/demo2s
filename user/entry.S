@@ -38,6 +38,7 @@ _start:
 	pushl $(_edata)
 	call bzero
 
+	addl $8, %esp
 args_exist:
 	call libmain
 1:      jmp 1b

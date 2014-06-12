@@ -27,7 +27,7 @@ ULDFLAGS := -Ttext 0x800020
 # Lists that the */Makefrag makefile fragments will add to
 OBJDIRS :=
 CLEAN_FILES := .deps bochs.log
-CLEAN_PATS := *.o *.d *.asm
+CLEAN_PATS := *.o *.d *.asm *.lib *.b.c
 
 
 # Make sure that 'all' is the first target
@@ -37,8 +37,9 @@ all: ${USERLIB}
 # Include Makefrags for subdirectories
 include user/Makefrag
 include kern/Makefrag
-include boot/Makefrag
 include fs/Makefrag
+include boot/Makefrag
+
 
 
 
@@ -62,13 +63,14 @@ include fs/Makefrag
 	$(TOP)/tools/bintoc/bintoc -S $< $*_bin > $@~ && $(MV) -f $@~ $@
 
 bochs: kern/bochs.img
-	bochs-nogui
+	bochs -q
 
 kernel.asm: kern/kernel
 	$(OBJDUMP) -S --adjust-vma=0xf00ff000 kern/kernel >kernel.asm
 
 # For cleaning the source tree
 clean:
+	rm -f fs/fs.img bochs.out
 	rm -rf $(CLEAN_FILES) $(foreach dir,$(OBJDIRS), \
 				$(addprefix $(dir)/,$(CLEAN_PATS)))
 

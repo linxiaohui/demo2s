@@ -24,12 +24,13 @@ set_pgfault_handler(void (*fn)(u_int va, u_int err))
 		// register assembly handler and stack with operating system
 	  r = sys_mem_alloc(0,UXSTACKTOP-BY2PG,PTE_W|PTE_U);
 	  if(r<0) {
-	    panic("!!@@##$$%%^^&&** %e\n",r);
+	    panic("sys_mem_alloc failed: %e",r);
 	    return;
 	  }
 	  r = sys_set_pgfault_handler(0,__asm_pgfault_handler,UXSTACKTOP);
-	  if(r<0)
-	    panic("!@#$%^&* %e\n",r);
+	  if(r<0) {
+	    panic("sys_set_pgfault_hander failed: %e\n",r);
+	  }
 	}
 		// demo2s_code_end;
 	// Save handler pointer for assembly to call.

@@ -1,6 +1,7 @@
 CLEAN_FILES += \
 	fs/fs \
 	fs/fsformat \
+	user/init \
 
 OBJDIRS += fs
 
@@ -13,6 +14,7 @@ FSOFILES := \
 FSIMGFILES := \
 	fs/newmotd \
 	fs/motd \
+	user/init \
 
 # For embedding one program in another
 
@@ -38,7 +40,9 @@ fs/fsformat: fs/fsformat.c
 	gcc -I. -o fs/fsformat fs/fsformat.c
 
 fs/fs.img: fs/fsformat $(FSIMGFILES)
-	dd if=/dev/zero of=fs/fs.img bs=4096 count=1024 2>/dev/null
+	@echo creating fs/fs.img
+	@rm -rf fs/fs.img
+	bximage -hd -mode=flat -size=4 fs/fs.img -q > /dev/null
 	./fs/fsformat fs/fs.img $(FSIMGFILES)
 
 all: fs/fs.img

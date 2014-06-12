@@ -213,7 +213,7 @@ page_fault_handler(struct Trapframe *tf)
 		return;
 	}			//end if
 	if(curenv->env_pgfault_handler==0) {
-	    printf("[%08x] user fault va %08x ip %08x\n",curenv->env_id,va,tf->tf_eip);
+	    printf("[%08x] user fault va %08x errcode %08x ip %08x\n",curenv->env_id,va,tf->tf_err,tf->tf_eip);
 	    env_destroy(curenv);
 	    return;
 	}

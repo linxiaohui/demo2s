@@ -1,16 +1,18 @@
+OBJDIRS += user
 CLEAN_FILES += \
 	user/idle \
 	user/pingpong \
 	user/primes \
+	user/icode \
+	user/testfsipc \
+	user/init \
 
 USERLIB := \
-	user/fd.o \
         user/file.o \
 	user/fork.o \
         user/fsipc.o \
 	user/ipc.o \
 	user/libos.o \
-        user/pageref.o \
 	user/pgfault.o \
 	user/printf.o \
         user/spawn.o \

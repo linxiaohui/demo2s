@@ -49,6 +49,8 @@ i386_init(void)
 	kclock_init();
 	env_init();
 
+	printf("KSTACKTOP: %08x\nULIM: %08x\nUVPT: %08x\nUTOP: %08x\nUSTACKTOP: %08x\n"
+	       ,KSTACKTOP,ULIM,UVPT,UTOP,USTACKTOP);
 	// Should always have an idle process as first one.
 	ENV_CREATE(user_idle);
 	// Start fs.

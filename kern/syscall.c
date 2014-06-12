@@ -39,7 +39,7 @@ sys_env_destroy(u_int envid)
 	struct Env *e;
 	if ((r=envid2env(envid, &e, 1)) < 0)
 		return r;
-	// printf("[%08x] destroying %08x\n", curenv->env_id, e->env_id);
+	printf("[%08x] destroying %08x\n", curenv->env_id, e->env_id);
 	env_destroy(e);
 	return 0;
 }
@@ -166,6 +166,7 @@ sys_mem_alloc(u_int envid, u_int va, u_int perm)
 	   printf("####%x\n",va);
 	  return i;
 	}
+	bzero((void*)page2kva(p),BY2PG);
 	i = page_insert(e->env_pgdir,p,va,perm);
 	if(i<0) {
 	  printf("$$$$%x\n",va);
@@ -301,7 +302,7 @@ sys_set_trapframe(u_int envid, struct Trapframe *tf)
 	struct Trapframe ltf;
 
 	page_fault_mode = PFM_KILL;
-	ltf = *TRUP(tf);
+	bcopy(TRUP(tf),&ltf,sizeof(struct Trapframe));
 	page_fault_mode = PFM_NONE;
 
 	ltf.tf_eflags |= FL_IF;
@@ -310,9 +311,9 @@ sys_set_trapframe(u_int envid, struct Trapframe *tf)
 	if ((r=envid2env(envid, &e, 1)) < 0)
 		return r;
 	if (e == curenv)
-		*UTF = ltf;
+	       	bcopy(&ltf,UTF,sizeof(struct Trapframe));
 	else
-		e->env_tf = ltf;
+	       	bcopy(&ltf,&e->env_tf,sizeof(struct Trapframe));
 	return 0;
 }
 
@@ -360,6 +361,10 @@ syscall(u_int sn, u_int a1, u_int a2, u_int a3, u_int a4, u_int a5)
 		return sys_mem_map(a1,a2,a3,a4,a5);
 	case SYS_mem_unmap:
 		return sys_mem_unmap(a1,a2);
+	case SYS_set_trapframe:
+		return sys_set_trapframe(a1,a2);
+	case SYS_panic:
+		sys_panic(a1);
 	default:
 		return -E_INVAL;
 	}

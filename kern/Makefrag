@@ -30,7 +30,6 @@ KERN_SRCFILES :=	kern/locore.S \
 			kern/kclock.c \
 			kern/picirq.c \
 			kern/trap.c \
-			kern/lab3.S \
 			kern/sched.c \
 			kern/syscall.c
 KERN_SRCFILES := $(foreach file, $(KERN_SRCFILES), \
@@ -55,16 +54,19 @@ KERN_BINFILE := \
 	user/faultgoodstack \
 	user/hello \
 	user/idle \
+	user/icode \
 	user/pingpong \
 	user/pingpong1 \
 	user/pingpong2 \
 	user/pingpongs \
 	user/primes \
-	fs/fs \
+	user/testfsipc \
+	user/writemotd \
 
 KERN_BINFILES := $(foreach file, $(KERN_BINFILE), \
-			$(shell test -f $(file).c && echo $(file)))
+			$(shell test -f $(file).c && echo $(file).lib))
 
+KERN_BINFILES += fs/fs
 
 # How to build the kernel itself
 kern/kernel: $(KERN_OBJFILES) $(KERN_BINFILES)

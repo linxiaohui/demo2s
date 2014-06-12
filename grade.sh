@@ -13,22 +13,24 @@ else
 fi
 
 
+pts=5
+
 runtest() {
 	perl -e "print '$1: '"
 	rm -f kern/init.o kern/kernel kern/bochs.img
 	if $verbose
 	then
-		perl -e "print 'gmake $2... '"
+		perl -e "print 'make $2... '"
 	fi
-	if ! gmake $2 kern/bochs.img fs/fs.img >$out
+	if ! make $2 kern/bochs.img fs/fs.img >$out 2>$err
 	then
-		echo gmake failed 
+		echo make failed 
 		exit 1
 	fi
 	(
 		ulimit -t 20
-		(echo c; echo die; echo quit) |
-			bochs-nogui 'parport1: enabled=1, file="bochs.out"'
+		(echo c; echo quit) |
+			bochs -q 'parport1: enabled=1, file="bochs.out"'
 	) >$out 2>$err
 	if [ ! -s bochs.out ]
 	then
@@ -82,7 +84,7 @@ continuetest() {
 	done
 	if [ "$okay" = "yes" ]
 	then
-		score=`echo 5+$score | bc`
+		score=`echo $pts+$score | bc`
 		echo OK
 	else
 		echo WRONG
@@ -107,6 +109,9 @@ runtest1() {
 
 
 score=0
+
+rm -f fs/fs.img
+make fs/fs.img >$out 2>$err
 
 runtest1 -tag 'fs i/o' testfsipc \
 	'FS can do I/O' \
@@ -147,8 +152,40 @@ quicktest 'serv_*' \
 
 echo PART A SCORE: $score/55
 
-echo PART B grading script is not available yet.
-echo we will announce when it is ready.
+rm -f fs/fs.img
+make fs/fs.img >$out 2>$err
+
+score=0
+pts=10
+runtest1 -tag 'motd display' writemotd \
+	'OLD MOTD' \
+	'This is /motd, the message of the day.' \
+	'NEW MOTD' \
+	'This is the NEW message of the day!' \
+
+runtest1 -tag 'motd change' writemotd \
+	'OLD MOTD' \
+	'This is the NEW message of the day!' \
+	'NEW MOTD' \
+	! 'This is /motd, the message of the day.' \
+
+rm -f fs/fs.img
+make fs/fs.img >$out 2>$err
+
+pts=25
+runtest1 -tag 'spawn via icode' icode \
+	'icode: read /motd' \
+	'This is /motd, the message of the day.' \
+	'icode: spawn /init' \
+	'/init: running' \
+	'/init: data seems okay' \
+	'icode: exiting' \
+	'/init: bss seems okay' \
+	"/init: args: 'init' 'initarg1' 'initarg2'" \
+	'/init: exiting' \
+
+echo PART B SCORE: $score/45
+
 exit 0
 
 

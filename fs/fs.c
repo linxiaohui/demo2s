@@ -87,8 +87,29 @@ read_block(u_int blockno, void **blk, u_int *isnew)
 	if (bitmap && block_is_free(blockno))
 		panic("reading free block %08x\n", blockno);
 
-	// Your code here
-	panic("read_block not implemented");
+	//demo2s_code_start;
+	va = block_is_mapped(blockno);
+	
+	if(va!=0) {		// the requested block is already in memory
+		if(blk!=0)
+			*blk   = va;
+		if(isnew!=0)
+			*isnew = 0;
+		return 0;
+	}
+			
+	va = diskaddr(blockno);
+
+	if(blk!=0)
+		*blk   = va;
+	if(isnew!=0)
+		*isnew = 1;
+
+	if((r=sys_mem_alloc(0,va,PTE_W|PTE_U|PTE_P))<0)
+		return r;
+
+	ide_read(1,blockno<<3,va,8);
+	//demo2s_code_end;	
 	return 0;
 }
 
@@ -103,7 +124,21 @@ write_block(u_int blockno)
 	if (!block_is_mapped(blockno))
 		panic("write unmapped block %08x", blockno);
 	// Your code here to write disk block and clear PTE_D.
-	panic("write_block not implemented");
+	//demo2s_code_start;
+	// to write disk block and clear PTE_D.
+	int r;
+	if(!block_is_dirty(blockno))
+		return;
+	
+	va=diskaddr(blockno);
+
+	ide_write(1,blockno<<3,va,8);
+
+	if((r=sys_mem_map(0,va,0,va,PTE_P|PTE_U|PTE_W))<0){	// the permission should be ??
+		panic("%e\n",r);
+	}
+
+	//demo2s_code_end;
 }
 
 // Make sure this block is unmapped.
@@ -147,8 +182,18 @@ free_block(u_int blockno)
 int
 alloc_block_num(void)
 {
-	// Your code here.
-	panic("alloc_block_num not implemented");
+	//demo2s_code_start;
+	int 	blockno;
+	blockno = 2;
+	
+	while(blockno<super->s_nblocks) {
+		if (bitmap[blockno / 32] & (1 << (blockno % 32))) {
+			bitmap[blockno/32] &= ~(1<<(blockno%32));//mark the block in use
+			return blockno;
+		}
+		blockno++;
+	}
+	//demo2s_code_end;	
 	return -E_NO_DISK;
 }
 
@@ -203,10 +248,18 @@ read_bitmap(void)
 	int r;
 	u_int i;
 	void *blk;
+	//demo2s_code_start;
+	nbitmap	= (super->s_nblocks+32767)/32768;	//4096*8=32768
 
-	// Your code here
-	panic("read_bitmap not implemented");
+	//block 0 is typically reserved to hold boot_loaders and partition tables
+	//block 1 is superblock
+	if((r=read_block(2,&bitmap,0))<0) 
+		panic("read bitmap error:  %e\n",r);
 
+	for(i=1;i<nbitmap;i++)
+		if((r=read_block(2+i,0,0))<0)
+			panic("read bitmap error:  %e\n",r);
+	//demo2s_code_end;
 	// Make sure the reserved and root blocks are marked in-use
 	assert(!block_is_free(0));
 	assert(!block_is_free(1));
@@ -332,9 +385,15 @@ file_get_block(struct File *f, u_int filebno, void **blk)
 	int r, isnew;
 	u_int diskbno;
 
-	// Your code here -- read in the block, leaving the pointer in *blk.
-	panic("file_get_block not implemented");
-
+	//demo2s_code_start;
+	//read in the block, leaving the pointer in *blk.
+	// read in the block, leaving the pointer in *blk.
+	if((r=file_map_block(f,filebno,&diskbno,1))<0)
+		return r;
+	
+	if((r=read_block(diskbno,blk,&isnew))<0)
+		return r;
+	//demo2s_code_end;
 	if (isnew && f->f_type == FTYPE_DIR) {
 		// we just read some File structures off disk - initialize the memory-only parts
 		int i;
@@ -375,7 +434,7 @@ dir_lookup(struct File *dir, char *name, struct File **file)
 	struct File *f;
 
 	// search dir for name
-	nblock = dir->f_size / BY2BLK;
+	nblock = (dir->f_size+BY2BLK-1)/BY2BLK;
 	for (i=0; i<nblock; i++) {
 		if ((r=file_get_block(dir, i, &blk)) < 0)
 			return r;
@@ -495,8 +554,13 @@ walk_path(char *path, struct File **pdir, struct File **pfile, char *lastelem)
 int
 file_open(char *path, struct File **file)
 {
-	// Your code here
-	panic("file_open not implemented");
+	//demo2s_code_start;
+	int 	r;
+	char 	name[MAXNAMELEN];
+	
+	if((r=walk_path(path,0,file,name))<0)
+		return r;
+	//demo2s_code_end;
 	return 0;
 }
 
@@ -542,8 +606,15 @@ file_truncate(struct File *f, u_int newsize)
 	int r;
 	u_int bno, old_nblocks, new_nblocks;
 
-	// Your code here
-	panic("file_truncate not implemented");
+	//demo2s_code_start;
+	old_nblocks = (f->f_size+BY2BLK-1)/BY2BLK;
+	new_nblocks = (newsize+BY2BLK-1)/BY2BLK;
+	f->f_size   = newsize;
+	for(bno=new_nblocks;bno<old_nblocks;bno++)
+		file_clear_block(f,bno);
+	if(new_nblocks<=NDIRECT)
+		free_block(f->f_indirect);
+	//demo2s_code_end;			
 }
 
 int
@@ -583,8 +654,20 @@ file_decref(struct File *f)
 void
 file_flush(struct File *f)
 {
-	// Your code here
-	panic("file_flush not implemented");
+	//demo2s_code_start;
+	int 	r;
+	u_int 	fbn; 		//number of blocks of a file
+	u_int 	i;
+	u_int 	diskbno;
+		
+	fbn = (f->f_size+BY2BLK-1)/BY2BLK;
+	for(i=0;i<fbn;i++) {
+		if((r=file_map_block(f,i,&diskbno,0))<0)
+			return r;
+		if(block_is_dirty(diskbno))
+			write_block(diskbno);
+	}
+	//demo2s_code_end;
 }
 
 // Sync the entire file system.  A big hammer.
