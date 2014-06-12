@@ -40,16 +40,34 @@ KERN_OBJFILES := $(patsubst %.c, %.o, \
 
 
 # Binary program images to embed within the kernel.
-KERN_BINFILES :=	user/kenv0/kenv0 \
-			user/simple/simple
-KERN_BINFILES := $(foreach file, $(KERN_BINFILES), \
-			$(shell test -f $(file) && echo $(file)))
+KERN_BINFILE := \
+	user/buggyhello \
+	user/evilhello \
+	user/fairness \
+	user/fault \
+	user/faultalloc \
+	user/faultallocbad \
+	user/faultbadhandler \
+	user/faultbadstack \
+	user/faultdie \
+	user/faultevilhandler \
+	user/faultevilstack \
+	user/faultgoodstack \
+	user/hello \
+	user/idle \
+	user/pingpong \
+	user/pingpong1 \
+	user/pingpong2 \
+	user/pingpongs \
+	user/primes
+
+KERN_BINFILES := $(foreach file, $(KERN_BINFILE), \
+			$(shell test -f $(file).c && echo $(file)))
 
 
 # How to build the kernel itself
-kern/kernel: $(KERN_OBJFILES)
-	$(LD) -o $@ $(KERN_LDFLAGS) $^ $(GCC_LIB) -b binary $(KERN_BINFILES)
-
+kern/kernel: $(KERN_OBJFILES) $(KERN_BINFILES)
+	$(LD) -o $@ $(KERN_LDFLAGS) $(KERN_OBJFILES) $(GCC_LIB) $(KERN_BINFILES)
 
 # How to build the Bochs disk image
 kern/bochs.img: kern/kernel boot/boot
@@ -58,6 +76,5 @@ kern/bochs.img: kern/kernel boot/boot
 	dd if=boot/boot of=kern/bochs.img~ conv=notrunc
 	dd if=kern/kernel of=kern/bochs.img~ seek=1 conv=notrunc
 	mv kern/bochs.img~ kern/bochs.img
-	dd conv=notrunc bs=510 if=kern/cgh of=kern/bochs.img seek=1
 all: kern/bochs.img
 

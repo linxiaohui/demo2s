@@ -579,6 +579,7 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 {
 	// Fill this function in
 	// demo2s_code_s
+#ifdef __LAB__3__
 	Pte * pte;
 	int status;
 	//if((pgdir[PDX(va)])&PTE_P) {
@@ -593,6 +594,25 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 
 	pp->pp_ref++;
 	return 0;
+#else
+	Pte * 	pte;
+	int 	status;
+	pp->pp_ref++;
+	
+	status = pgdir_walk(pgdir,va,1,&pte);
+	
+	if(status<0) {
+		pp->pp_ref--;
+		return -E_NO_MEM;
+	}
+	
+	page_remove(pgdir,va);
+	
+	*pte=page2pa(pp)|perm|PTE_P;
+	
+	return 0;
+
+#endif
 	// demo2s_code_end;
 }
 
