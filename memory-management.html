@@ -1,1 +1,365 @@
-Memory Management
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="demo2s : DemoOS: MIT OCW 6.828" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>demo2s memory management</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/linxiaohui/demo2s">View on GitHub</a>
+
+          <h1 id="project_title">demo2s</h1>
+          <h2 id="project_tagline">DemoOS: MIT OCW 6.828</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/linxiaohui/demo2s/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/linxiaohui/demo2s/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a name="bochs" class="anchor" href="#bochs"><span class="octicon octicon-link"></span></a>Bochs</h1>
+
+<p><code>vb</code>, <code>lb</code>, and <code>pb</code> breakpoint commands to break at virtual, linear, and physical breakpoints. </p>
+
+<p>The default <code>b</code> command breaks at a physical address.</p>
+
+<p><code>x</code> command examines data at a linear address. The command <code>xp</code> takes a physical address</p>
+
+<h1>
+<a name="vm-layout" class="anchor" href="#vm-layout"><span class="octicon octicon-link"></span></a>VM layout</h1>
+
+<p>完成实现虚拟地址到物理地址的转化的准备工作</p>
+
+<h3>
+<a name="incmmuh" class="anchor" href="#incmmuh"><span class="octicon octicon-link"></span></a>inc/mmu.h</h3>
+
+<p>理解其中定义的与地址相关的宏</p>
+
+<h3>
+<a name="%E5%AE%9E%E7%8E%B0%E4%BA%8C%E7%BA%A7%E9%A1%B5%E8%A1%A8%E7%9A%84%E6%98%A0%E5%B0%84%E6%9C%BA%E5%88%B6" class="anchor" href="#%E5%AE%9E%E7%8E%B0%E4%BA%8C%E7%BA%A7%E9%A1%B5%E8%A1%A8%E7%9A%84%E6%98%A0%E5%B0%84%E6%9C%BA%E5%88%B6"><span class="octicon octicon-link"></span></a>实现二级页表的映射机制</h3>
+
+<p>实现下面函数</p>
+
+<p><code>alloc()</code> 在物理内存中申请一段空间并返回其在内核空间中的地址(虚拟地址)</p>
+
+<p><code>boot_pgdir_walk()</code> 返回一虚拟地址对应在页表中的页表项。</p>
+
+<p><code>boot_map_segment()</code> 设定虚拟地址到物理地址的对应关系</p>
+
+<p><code>i386_vm_init()</code>  Handle the layout of the kernel portion of the virtual address space.</p>
+
+<p>实验成功与否由<code>check_boot_pgdir()</code>函数来检验</p>
+
+<h3>
+<a name="qa" class="anchor" href="#qa"><span class="octicon octicon-link"></span></a>Q&amp;A</h3>
+
+<h5>
+<a name="1-entries-in-the-page-directory" class="anchor" href="#1-entries-in-the-page-directory"><span class="octicon octicon-link"></span></a>1). Entries in the page directory</h5>
+
+<p>What entries in the page directory have been filled in at this point? 
+What addresses do they map and where do they point?</p>
+
+<p>在代码中添加检测代码可以查看pgdir[0]-pgdir[1023]的相关信息. 通过实验数据如下:</p>
+
+<pre><code>pgdir[0]--&gt;0x0
+pgdir[954]--&gt;0x0
+pgdir[955]--&gt; 0x184000
+pgdir[956]--&gt; 0x166000
+pgdir[957]--&gt; 0x10c000
+pgdir[958]--&gt; 0x10d000
+pgdir[959]--&gt; 0x10c000
+pgdir[960]--&gt; 0x10e000
+……
+pgdir[1023]--&gt; 0x14d000
+</code></pre>
+
+<p>它们每一个代表4M内存。</p>
+
+<h5>
+<a name="2-addressing" class="anchor" href="#2-addressing"><span class="octicon octicon-link"></span></a>2). ADDRESSING</h5>
+
+<p>In <code>i386_vm_init()</code>, after check_boot_page_directory (<code>check_boot_pgdir()</code>), 
+we map the first entry of the page directory to the page table of the first 4 MB of RAM,
+but delete this mapping at the end of the function. Why is this necessary? 
+What would happen if it were omitted? 
+Does this actually limit our kernel to be 4MB? 
+What must be true if our kernel were larger than 4MB?</p>
+
+<p><code>i386_vm_init()</code>中<code>pgdir[0] = pgdir[PDX(KERNBASE)]</code>将 first 4 MB of RAM映射到the first entry of the page directory
+(因为在前面已经将物理地址[0,2^32-1-KERNBASE]映射到虚拟地址[KERNBASE,2^32-1]). 目的是在打开页式寻址模式(lcr0)后重新装载段寄存器前还能继续正确寻址.</p>
+
+<p><code>pgdir[0]=0;</code> delete this mappping 是为了在重新装载段寄存器后能正确寻址.</p>
+
+<p>原因:
+在打开页式寻址模式(lcr0)后重新装载段寄存器前, 代码段和数据段的基址是<code>-KERNBASE</code> (<code>kern/locore.S</code>)
+此时一地址(比如eip寄存器里的值)经过段式寻址后, 其值变成实际的物理地址(实际上在此之前都是这样的),
+以此为线性地址再经过页式寻址,找到其在页目录中的entity(此时为pgdir[0]),然后找到其页表,再找到页面.
+由上述过程可知这样后得到的仍为正确的物理地址(因为在前面已经将虚拟地址[KERNBASE,2^32-1]映射到物理地址 [0,2^32-1-KERNBASE])</p>
+
+<p>再删除是因为重新装载段寄存器后,代码段等段的基址为0,一地址经过段式寻址后得到得是线性地址(值为内核空间地址的值),经线性寻址后成为物理地址. 
+如果不正样做, 程序在执行完语句lcr0(cr0)将不能正常执行,因为CPU已经不能正确的寻址,不能将eip指向的内存中的指令取出. </p>
+
+<p>如果不重新设置pgdir[0]不会造成寻址错误, 但会造成映射错误----不在内存中的地址被认为在内存中.
+这样做不会将内核限制在4M范围内,因为在重新装载段寄存器后将能正确的寻址,不会再经过pgdir[0],因而不会将内核限制在4M.当然重新装载段寄存器的代码必须在4M范围内.</p>
+
+<h5>
+<a name="3-memory-protection" class="anchor" href="#3-memory-protection"><span class="octicon octicon-link"></span></a>3). MEMORY PROTECTION</h5>
+
+<p>On the x86, we place the kernel and user process in the same address space.
+What specific mechanism (i.e., what register, memory address, or bit thereof) is used to protect the kernel's memory against a malicious user process?</p>
+
+<p>系统通过特权级实现内核与应用程序之间的保护. </p>
+
+<p>在段式内存管理下主要有:</p>
+
+<p>DPL(Discriptor Privilege Leval)段描述符所代表的内存段的特权级</p>
+
+<p>RPL(Requested Privilege Level) 段选择子的特权级</p>
+
+<p>CPL(Current Privilege Level)当前所执行的代码的特权级(内核态/用户态)</p>
+
+<p>RPL、DPL用于段访问时的特权级检查，若RPL&lt;=DPL才允许访问
+当一任务试图访问一个内存段时, 只有CPL&lt;=DPL才允许访问</p>
+
+<p>页式内存管理模式下:
+内存的保护主要有页表项的R/W位U/S位及控制寄存器CR0的MP位</p>
+
+<h2>
+<a name="physical-page-management" class="anchor" href="#physical-page-management"><span class="octicon octicon-link"></span></a>Physical page management</h2>
+
+<p>完成用于管理物理内存的内存数据结构的布局和物理内存的删除、分配等操作.</p>
+
+<h3>
+<a name="incpmaph" class="anchor" href="#incpmaph"><span class="octicon octicon-link"></span></a>inc/pmap.h</h3>
+
+<p>表示物理内存页的数据结构</p>
+
+<h3>
+<a name="incqueueh" class="anchor" href="#incqueueh"><span class="octicon octicon-link"></span></a>inc/queue.h</h3>
+
+<p>链表的实现和使用</p>
+
+<h3>
+<a name="%E9%A1%B5%E9%9D%A2%E6%9C%89%E5%85%B3%E5%87%BD%E6%95%B0" class="anchor" href="#%E9%A1%B5%E9%9D%A2%E6%9C%89%E5%85%B3%E5%87%BD%E6%95%B0"><span class="octicon octicon-link"></span></a>页面有关函数</h3>
+
+<p><code>page_init()</code>   初始化代表每一内存页的数据结构(Page数组pages),将空闲的页的Page插入空闲页链表</p>
+
+<p><code>page_alloc()</code>  返回一空闲页的Page</p>
+
+<p><code>page_free()</code>   将某页的Page插入空闲页链表</p>
+
+<p><code>page_walk()</code>   得到一线性地址的pte</p>
+
+<p><code>page_insert()</code> 将某页面对应到一线性地址中</p>
+
+<p><code>page_remove()</code> 去掉线性地址对应的页面</p>
+
+<h3>
+<a name="qa-1" class="anchor" href="#qa-1"><span class="octicon octicon-link"></span></a>Q&amp;A</h3>
+
+<h5>
+<a name="1-physical-memory-amount" class="anchor" href="#1-physical-memory-amount"><span class="octicon octicon-link"></span></a>1) Physical memory amount</h5>
+
+<p>What is the maximum amount of physical memory that this operating system can support? Why?</p>
+
+<p>目前该操作系统支持的最大内存数为2^32-KERNBASE字节.</p>
+
+<p>因为在函数<code>i386_vm_init()</code>中,将线性空间[KERNBASE,2^32-1]映射到物理地址[0,2^32-KERNBASE-1]</p>
+
+<h5>
+<a name="2-overhead" class="anchor" href="#2-overhead"><span class="octicon octicon-link"></span></a>2) Overhead</h5>
+
+<p>How much space overhead is there for managing memory, if we actually had the maximum amount of </p>
+
+<p>在该实验中, 如果真的拥有256M内存,将有65×4K(内核的页目录和页表) + 64K×sizeof(Page)的空间用来管理物理内存.</p>
+
+<p>当内存超过256M时,超过的部分在pages数组中仍有体现,它们还会在page_free_list中,还有可能被申请到,但是它们不能被寻址.</p>
+
+<h2>
+<a name="printf-potpourri" class="anchor" href="#printf-potpourri"><span class="octicon octicon-link"></span></a>Printf Potpourri</h2>
+
+<p>理解内核应如何处理IO, printf函数的实现, gcc调用规范和变参数函数的实现</p>
+
+<h3>
+<a name="qa-2" class="anchor" href="#qa-2"><span class="octicon octicon-link"></span></a>Q&amp;A</h3>
+
+<h4>
+<a name="1-printfc-and-consolec" class="anchor" href="#1-printfc-and-consolec"><span class="octicon octicon-link"></span></a>1). <code>printf.c</code> and <code>console.c</code>
+</h4>
+
+<p>Explain the interface between printf.c and console.c. 
+Specifically, what function does console.c export? How is this function used by printf.c?</p>
+
+<p>在printf.c中用到了console.c中定义的函数<code>cons_putc()</code>, 该函数的功能是向屏幕缓冲区中写入一字符.并将屏幕缓冲区打印到控制台上.</p>
+
+<h4>
+<a name="2-consolec" class="anchor" href="#2-consolec"><span class="octicon octicon-link"></span></a>2). <code>console.c</code>
+</h4>
+
+<p>Explain the following from <code>console.c</code></p>
+
+<pre><code>if (crt_pos &gt;= CRT_SIZE) {
+     int i;
+     bcopy (crt_buf + CRT_COLS, crt_buf, CRT_SIZE &lt;&lt; 1);
+     for (i = CRT_SIZE - CRT_COLS; i &lt; CRT_SIZE; i++)
+         crt_buf[i] = 0x0700 | '  ';
+    crt_pos -= CRT_COLS;
+}
+</code></pre>
+
+<p>这段代码是在需要时滚屏(一行)</p>
+
+<h4>
+<a name="3-warn" class="anchor" href="#3-warn"><span class="octicon octicon-link"></span></a>3). <code>warn()</code>
+</h4>
+
+<h5>
+<a name="trace-the-execution-of-the-following-code-step-by-step" class="anchor" href="#trace-the-execution-of-the-following-code-step-by-step"><span class="octicon octicon-link"></span></a>Trace the execution of the following code step-by-step:</h5>
+
+<pre><code>int x = 1, y = 3, z = 4;
+warn("x %d, y %x, z %d\n", x, y, z);
+</code></pre>
+
+<h6>
+<a name="a-in-the-call-to-kprintf-to-what-does-fmt-point-to-what-does-ap-point" class="anchor" href="#a-in-the-call-to-kprintf-to-what-does-fmt-point-to-what-does-ap-point"><span class="octicon octicon-link"></span></a>a) in the call to kprintf(), to what does <code>fmt</code> point? to what does <code>ap</code> point?</h6>
+
+<p><code>fmt</code>指向字符串"x %d, y %x, z %d\n"(其值为该字符串的地址)，<code>ap</code>指向<code>x</code>的值在栈中的地址</p>
+
+<h6>
+<a name="b-list-in-order-of-execution-each-call-to-cons_putc-va_arg-and-ksprintn" class="anchor" href="#b-list-in-order-of-execution-each-call-to-cons_putc-va_arg-and-ksprintn"><span class="octicon octicon-link"></span></a>b) list (in-order of execution) each call to <code>cons_putc</code>, <code>va_arg</code>, and <code>ksprintn</code>
+</h6>
+
+<p>For <code>cons_putc</code>, list its argument as well. 
+For <code>va_arg</code>, list what <code>ap</code> points to before and after the call. 
+For <code>ksprintn</code> list the values of it's first two arguments.</p>
+
+<p>通过跟踪观察</p>
+
+<p>va_arg: ap之前为x的值在栈中的地址,之后为y的值在栈中的地址</p>
+
+<p>ksprintn: 1 10</p>
+
+<p>cons_putc '1'</p>
+
+<p>va_arg: ap之前为y的值在栈中的地址,之后为z的值在栈中的地址</p>
+
+<p>ksprintn: 3 16</p>
+
+<p>cons_putc '3'</p>
+
+<p>va_arg: ap之前为z的值在栈中的地址,之后为z的值在栈中的地址+4</p>
+
+<p>ksprintn:4 10</p>
+
+<p>cons_putc '4'</p>
+
+<h5>
+<a name="run-the-following-code" class="anchor" href="#run-the-following-code"><span class="octicon octicon-link"></span></a>Run the following code.</h5>
+
+<pre><code>u_int i = 0x00646c72;
+warn("H%x Wo%s", 57616, &amp;i);
+</code></pre>
+
+<h6>
+<a name="awhat-is-the-output-explain-how-this-output-is-arrived-out" class="anchor" href="#awhat-is-the-output-explain-how-this-output-is-arrived-out"><span class="octicon octicon-link"></span></a>a)What is the output? Explain how this output is arrived out</h6>
+
+<p>输出为<code>He110 World</code>. 因为57616=0xe110，0x72=r 0x6c=l ,0x64=d. 
+由于Intel X86体系结构是little-endian, 所以i变量在内存中的存储(从低到高)是0x72 0x6c 0x64 0x00
+<code>warn()</code>从格式字符串中得到格式信息<code>%x</code>, 将57616从栈中取出,以16进制方式输出<code>e110</code>. 
+根据格式信息<code>%s</code>, 从栈中取出i的地址(该值作为参数传递给warn), 以输出字符串的方式(一次一字节直至遇到0x00)输出成<code>rld</code></p>
+
+<h6>
+<a name="bif-the-x86-were-instead-big-endian-what-would-you-set-i-to-in-order-to-yield-the-same-output" class="anchor" href="#bif-the-x86-were-instead-big-endian-what-would-you-set-i-to-in-order-to-yield-the-same-output"><span class="octicon octicon-link"></span></a>b)If the x86 were instead big-endian what would you set i to in order to yield the same output?</h6>
+
+<p>Would you need to change 57616 to a different value?
+如果x86是big-endian并且其栈还是向下生长的, i的值应该设成0x726c6400. 不应该改变57616</p>
+
+<h5>
+<a name="in-the-following-code-what-is-going-to-be-printed-after-y-why-does-this-happen" class="anchor" href="#in-the-following-code-what-is-going-to-be-printed-after-y-why-does-this-happen"><span class="octicon octicon-link"></span></a>In the following code, what is going to be printed after 'y='? Why does this happen?</h5>
+
+<pre><code>warn("x=%d y=%d", 3);
+</code></pre>
+
+<p>y= 后面显示的是栈中的,在参数3的上方(高地址)的4字节的值(该值每次运行是确定的,但是没有意义)
+因为根据gcc调用规范传递参数, 将参数压入栈中是调用者的责任: 被调用的warn函数, 根据其控制字符串到栈中取参数, 它不管参数是否传递正确.
+所以它会将参数3后的数值取出, 而该数不是调用者传递的参数.</p>
+
+<p>为了说明这点，可以在warn语句之前加入内联汇编,压入一个参数(比如1), 这时y=后将显示该参数.</p>
+
+<p>将参数压如栈需要理解gcc调用规范和gcc中对参数传递的处理. 例如使用
+<code>asm volatile("movl $1,%eax\n\tmovl %eax %ss:0x8(%esp)");</code>
+一种解释是在gcc中子程序参数的传递不是通过push, 而是直接利用寄存器%esp的值对内存进行赋值, 偏移的数量由参数的位置决定</p>
+
+<h4>
+<a name="4-calling-convention" class="anchor" href="#4-calling-convention"><span class="octicon octicon-link"></span></a>4) Calling convention</h4>
+
+<p>Let's say that GCC changed its calling convention so that it passed arguments in declaration order (i.e., the opposite of reverse order). 
+How would you have to change printf or its interface so that it would still be possible to pass it a variable number of arguments?</p>
+
+<p>如果gcc改变了其调用规范, 参数传递自左向右入栈, 那么为实现可变参数的函数一个比较简单的想法是改变<code>inc/stdarg.h</code>中的<code>va_start</code>, <code>va_arg</code>宏
+可将其改成</p>
+
+<pre><code>#define va_start(ap, last) \
+      ((ap) = (va_list)&amp;(last) - __va_size(last))
+#define va_arg(ap, type) \
+      (*(type *)((ap) -= __va_size(type), (ap) + __va_size(type)))
+</code></pre>
+
+<p>这样取参数时就会向栈顶方向取。</p>
+
+<h2>
+<a name="trouble-shooting" class="anchor" href="#trouble-shooting"><span class="octicon octicon-link"></span></a>Trouble Shooting</h2>
+
+<h4>
+<a name="inline-asm" class="anchor" href="#inline-asm"><span class="octicon octicon-link"></span></a>inline asm</h4>
+
+<p><code>kern/pmap.c:258: error: memory input 0 is not directly addressable</code></p>
+
+<p>gcc -v后显示版本号为4.X.x. gcc-3.3编译没有问题. 猜测是gcc的高版本改变了语法(不允许对内存进行立即数赋值)</p>
+
+<p>再看出错语句<code>asm volatile ("lldt %0"::"m"(0))</code>, 其功能是将值0放到ldt中</p>
+
+<p>改成这样的也能达到相同的功能<code>asm volatile ("lldt %%ax"::"a"(0))</code> 编译通过</p>
+
+<h4>
+<a name="section-debug_aranges" class="anchor" href="#section-debug_aranges"><span class="octicon octicon-link"></span></a>section '.debug_aranges'</h4>
+
+<p>make时 <code>can not represent section '.debug_aranges' in a.out object file format</code></p>
+
+<p>修改kernel.lds</p>
+
+<pre><code>  /DISCARD/ : {
+        *(.comment)
+        *(.debug_*)
+        }
+</code></pre>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">demo2s maintained by <a href="https://github.com/linxiaohui">linxiaohui</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
