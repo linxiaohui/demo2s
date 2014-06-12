@@ -15,21 +15,20 @@ fi
 
 runtest() {
 	perl -e "print '$1: '"
-	rm -f kern/init.o
+	rm -f kern/init.o kern/kernel kern/bochs.img
 	if $verbose
 	then
-		perl -e "print 'make $2... '"
+		perl -e "print 'gmake $2... '"
 	fi
-make clean > $out
-	if ! make $2 kern/bochs.img >$out 2> $err
+	if ! gmake $2 kern/bochs.img fs/fs.img >$out
 	then
-		echo make failed
+		echo gmake failed 
 		exit 1
 	fi
 	(
-		ulimit -t 10
-		(echo c; echo quit) |
-			bochs -q 'parport1: enabled=1, file="bochs.out"'
+		ulimit -t 20
+		(echo c; echo die; echo quit) |
+			bochs-nogui 'parport1: enabled=1, file="bochs.out"'
 	) >$out 2>$err
 	if [ ! -s bochs.out ]
 	then
@@ -37,11 +36,38 @@ make clean > $out
 	else
 		shift
 		shift
-		okay=yes
+		continuetest "$@"
+	fi
+}
 
-		for i
-		do
-echo egrep "^$i\$" bochs.out >/dev/null
+quicktest() {
+	perl -e "print '$1: '"
+	shift
+	continuetest "$@"
+}
+
+continuetest() {
+	okay=yes
+
+	not=false
+	for i
+	do
+		if [ "x$i" = "x!" ]
+		then
+			not=true
+		elif $not
+		then
+			if egrep "^$i\$" bochs.out >/dev/null
+			then
+				echo "got unexpected line '$i'"
+				if $verbose
+				then
+					exit 1
+				fi
+				okay=no
+			fi
+			not=false
+		else
 			if ! egrep "^$i\$" bochs.out >/dev/null
 			then
 				echo "missing '$i'"
@@ -51,152 +77,78 @@ echo egrep "^$i\$" bochs.out >/dev/null
 				fi
 				okay=no
 			fi
-		done
-		if [ "$okay" = "yes" ]
-		then
-			score=`echo 5+$score | bc`
-			echo OK
-		else
-			echo WRONG
+			not=false
 		fi
+	done
+	if [ "$okay" = "yes" ]
+	then
+		score=`echo 5+$score | bc`
+		echo OK
+	else
+		echo WRONG
 	fi
 }
 
 runtest1() {
-	tag=$1
-	shift
-	runtest $tag "DEFS=-DTEST=binary_user_${tag}_start DEFS+=-DTESTSIZE=binary_user_${tag}_size" "$@"
+	if [ $1 = -tag ]
+	then
+		shift
+		tag=$1
+		prog=$2
+		shift
+		shift
+	else
+		tag=$1
+		prog=$1
+		shift
+	fi
+	runtest "$tag" "DEFS=-DTEST=binary_user_${prog}_start DEFS+=-DTESTSIZE=binary_user_${prog}_size" "$@"
 }
 
-score=0
-
-runtest1 hello \
-	'.00000000. new env 00000800' \
-	'.00000000. new env 00001001' \
-	'hello, world' \
-	'i am environment 00001001' \
-	'.00001001. exiting gracefully' \
-	'.00001001. free env 00001001'
-
-# the [00001001] tags should have [] in them, but that's 
-# a regular expression reserved character, and i'll be damned
-# if i can figure out how many \ i need to add to get through 
-# however many times the shell interprets this string.  sigh.
-
-runtest pingpong2 'DEFS=-DTEST_PINGPONG2' \
-	'1802 got 0 from 1001' \
-	'1001 got 1 from 1802' \
-	'1802 got 8 from 1001' \
-	'1001 got 9 from 1802' \
-	'1802 got 10 from 1001' \
-	'.00001001. exiting gracefully' \
-	'.00001001. free env 00001001' \
-	'.00001802. exiting gracefully' \
-	'.00001802. free env 00001802'
-
-echo PART A SCORE: $score/10
 
 score=0
 
-runtest1 buggyhello \
-	'.00001001. PFM_KILL va 00000001 ip f01.....' \
-	'.00001001. free env 00001001'
+runtest1 -tag 'fs i/o' testfsipc \
+	'FS can do I/O' \
+	! 'idle loop can do I/O' \
 
-runtest1 evilhello \
-	'.00001001. PFM_KILL va ef800000 ip f01.....' \
-	'.00001001. free env 00001001'
+quicktest 'read_block' \
+	'superblock is good' \
 
-runtest1 fault \
-	'.00001001. user fault va 00000000 ip 008000..' \
-	'.00001001. free env 00001001'
+quicktest 'write_block' \
+	'write_block is good' \
 
-runtest1 faultdie \
-	'i faulted at va deadbeef, err 6' \
-	'.00001001. exiting gracefully' \
-	'.00001001. free env 00001001' 
+quicktest 'read_bitmap' \
+	'read_bitmap is good' \
 
-runtest1 faultalloc \
-	'fault deadbeef' \
-	'this string was faulted in at deadbeef' \
-	'fault cafebffe' \
-	'fault cafec000' \
-	'this string was faulted in at cafebffe' \
-	'.00001001. exiting gracefully' \
-	'.00001001. free env 00001001'
+quicktest 'alloc_block' \
+	'alloc_block is good' \
 
-runtest1 faultallocbad \
-	'.00001001. PFM_KILL va deadbeef ip f01.....' \
-	'.00001001. free env 00001001' 
+quicktest 'file_open' \
+	'file_open is good' \
 
-runtest1 faultbadhandler \
-	'.00001001. PFM_KILL va eebfcffc ip f01.....' \
-	'.00001001. free env 00001001'
+quicktest 'file_get_block' \
+	'file_get_block is good' \
 
-runtest1 faultbadstack \
-	'.00001001. PFM_KILL va ef800000 ip f01.....' \
-	'.00001001. free env 00001001'
+quicktest 'file_truncate' \
+	'file_truncate is good' \
 
-runtest1 faultgoodstack \
-	'i faulted at va deadbeef, err 6, stack eebfd...' \
-	'.00001001. exiting gracefully' \
-	'.00001001. free env 00001001' 
+quicktest 'file_flush' \
+	'file_flush is good' \
 
-runtest1 faultevilhandler \
-	'.00001001. PFM_KILL va eebfcffc ip f01.....' \
-	'.00001001. free env 00001001'
+quicktest 'file rewrite' \
+	'file rewrite is good' \
 
-runtest1 faultevilstack \
-	'.00001001. PFM_KILL va ef800000 ip f01.....' \
-	'.00001001. free env 00001001'
+quicktest 'serv_*' \
+	'serve_open is good' \
+	'serve_map is good' \
+	'serve_close is good' \
+	'stale fileid is good' \
 
-echo PART B SCORE: $score/55
+echo PART A SCORE: $score/55
 
-score=0
-
-runtest1 pingpong1 \
-	'.00000000. new env 00000800' \
-	'.00000000. new env 00001001' \
-	'.00001001. new env 00001802' \
-	'send 0 from 1001 to 1802' \
-	'1802 got 0 from 1001' \
-	'1001 got 1 from 1802' \
-	'1802 got 8 from 1001' \
-	'1001 got 9 from 1802' \
-	'1802 got 10 from 1001' \
-	'.00001001. exiting gracefully' \
-	'.00001001. free env 00001001' \
-	'.00001802. exiting gracefully' \
-	'.00001802. free env 00001802' \
-
-runtest1 pingpong \
-	'.00000000. new env 00000800' \
-	'.00000000. new env 00001001' \
-	'.00001001. new env 00001802' \
-	'send 0 from 1001 to 1802' \
-	'1802 got 0 from 1001' \
-	'1001 got 1 from 1802' \
-	'1802 got 8 from 1001' \
-	'1001 got 9 from 1802' \
-	'1802 got 10 from 1001' \
-	'.00001001. exiting gracefully' \
-	'.00001001. free env 00001001' \
-	'.00001802. exiting gracefully' \
-	'.00001802. free env 00001802' \
-
-runtest1 primes \
-	'.00000000. new env 00000800' \
-	'.00000000. new env 00001001' \
-	'.00001001. new env 00001802' \
-	'2 .00001802. new env 00002003' \
-	'3 .00002003. new env 00002804' \
-	'5 .00002804. new env 00003005' \
-	'7 .00003005. new env 00003806' \
-	'11 .00003806. new env 00004007' 
-
-echo PART C SCORE: $score/15
-
-
-
-
+echo PART B grading script is not available yet.
+echo we will announce when it is ready.
+exit 0
 
 

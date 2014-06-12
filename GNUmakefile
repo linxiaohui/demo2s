@@ -18,9 +18,7 @@ MV	:= mv
 # Compiler flags
 # Note that -O2 is required for the boot loader to fit within 512 bytes;
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
-
-#predefined macros 
-DEFS	:=-DTEST_ALICEBOB
+DEFS	:=
 CFLAGS	:= $(CFLAGS) $(DEFS) -O2 -fno-builtin -I$(TOP) -MD -MP -Wall -ggdb
 
 # Linker flags for user programs
@@ -40,8 +38,8 @@ all: ${USERLIB}
 include user/Makefrag
 include kern/Makefrag
 include boot/Makefrag
--include user/Makefrag
--include tools/mkimg/Makefrag
+include fs/Makefrag
+
 
 
 # Eliminate default suffix rules

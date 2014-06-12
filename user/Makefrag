@@ -1,23 +1,6 @@
-OBJDIRS += user
 CLEAN_FILES += \
-	user/buggyhello \
-	user/evilhello \
-	user/fairness \
-	user/fault \
-	user/faultalloc \
-	user/faultallocbad \
-	user/faultbadhandler \
-	user/faultbadstack \
-	user/faultdie \
-	user/faultevilhandler \
-	user/faultevilstack \
-	user/faultgoodstack \
-	user/hello \
 	user/idle \
 	user/pingpong \
-	user/pingpong1 \
-	user/pingpong2 \
-	user/pingpongs \
 	user/primes \
 
 USERLIB := \
