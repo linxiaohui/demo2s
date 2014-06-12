@@ -15,7 +15,7 @@
 /* Values of env_status in struct Env */
 #define ENV_FREE	0
 #define ENV_RUNNABLE		1
-#define ENV_NOTRUNNABLE	2
+#define ENV_NOT_RUNNABLE	2
 
 struct Env {
 	struct Trapframe env_tf;        /* Saved registers */
@@ -26,13 +26,11 @@ struct Env {
 	Pde  *env_pgdir;                /* Kernel virtual address of page dir */
 	u_int env_cr3;                  /* Physical address of page dir */
 
-	/* (below here: not used in lab 3) */
 	/* IPC state */
-	u_int env_ipc_value;            /* data value sent to us */ 
-	u_int env_ipc_from;             /* envid of the sender */  
-	u_int env_ipc_blocked;          /* true(1) or false(0) */
-	/* env_ipc_blocked is true if and only if
-	   env_ipc_value and env_ipc_from are valid */
+	// Lab 4 IPC
+	u_int env_ipc_value;            // data value sent to us 
+	u_int env_ipc_from;             // envid of the sender  
+	u_int env_ipc_recving;          // env is blocked receiving
 
 	u_int env_pgfault_handler;      /* page fault state */
 	u_int env_xstacktop;            /* top of exception stack */

@@ -11,7 +11,7 @@
 #define E_NO_MEM	4	/* Request failed due to memory shortage */
 #define E_NO_FREE_ENV   5       /* Attempt to create a new environment beyond
 				   the maximum allowed */
-#define E_IPC_BLOCKED   6       /* Attempt to ipc to env blocking ipc's */
+#define E_IPC_NOT_RECV  6       /* Attempt to ipc to env blocking ipc's */
 
 #define MAXERROR 6
 

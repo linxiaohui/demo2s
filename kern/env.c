@@ -34,17 +34,28 @@ mkenvid(struct Env *e)
 //   env pointer -- on success and sets *error = 0
 //   NULL -- on failure, and sets *error = the error number
 //
-struct Env *
-envid2env(u_int envid, int *error)
+int
+envid2env(u_int envid, struct Env **penv, int checkperm)
 {
-	struct Env *e = &envs[ENVX(envid)];
-	if (e->env_status == ENV_FREE || e->env_id != envid) {
-		*error = -E_BAD_ENV;
-		return NULL;
-	} else {
-		*error = 0;
-		return e;
+	struct Env *e;
+
+	if (envid == 0) {
+		*penv = curenv;
+		return 0;
 	}
+
+	e = &envs[ENVX(envid)];
+	if (e->env_status == ENV_FREE || e->env_id != envid) {
+		*penv = 0;
+		return -E_BAD_ENV;
+	}
+
+	if (checkperm) {
+		// Your code here in Lab 4
+		return -E_BAD_ENV;
+	}
+	*penv = e;
+	return 0;
 }
 
 //
@@ -149,9 +160,8 @@ env_alloc(struct Env **new, u_int parent_id)
 	//e->env_tf.tf_eflags = 0;
 	//demo2s_code_end;
 	
-	e->env_ipc_blocked = 0;
-	e->env_ipc_value = 0;
-	e->env_ipc_from = 0;
+	e->env_ipc_recving = 0;
+
 
 	e->env_pgfault_handler = 0;
 	e->env_xstacktop = 0;
@@ -160,6 +170,7 @@ env_alloc(struct Env **new, u_int parent_id)
 	LIST_REMOVE(e, env_link);
 	*new = e;
 
+	printf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 	return 0;
 }
 
@@ -229,9 +240,30 @@ env_create(u_char *binary, int size)
 void
 env_free(struct Env *e)
 {
-	// For lab 3, env_free() doesn't really do
-	// anything (except leak memory).  We'll fix
-	// this in later labs.
+	Pte *pt;
+	u_int pdeno, pteno, pa;
+
+	// Note the environment's demise.
+	printf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+
+	// Flush all pages
+	static_assert(UTOP%PDMAP == 0);
+	for (pdeno = 0; pdeno < PDX(UTOP); pdeno++) {
+		if (!(e->env_pgdir[pdeno] & PTE_P))
+			continue;
+		pa = PTE_ADDR(e->env_pgdir[pdeno]);
+		pt = (Pte*)KADDR(pa);
+		for (pteno = 0; pteno <= PTX(~0); pteno++)
+			if (pt[pteno] & PTE_P)
+				page_remove(e->env_pgdir, (pdeno << PDSHIFT) | (pteno << PGSHIFT));
+		e->env_pgdir[pdeno] = 0;
+		page_decref(pa2page(pa));
+	}
+	pa = e->env_cr3;
+	e->env_pgdir = 0;
+	e->env_cr3 = 0;
+	page_decref(pa2page(pa));
+
 
 	e->env_status = ENV_FREE;
 	LIST_INSERT_HEAD(&env_free_list, e, env_link);

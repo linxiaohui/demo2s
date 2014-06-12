@@ -29,6 +29,7 @@
 
 /* page number field of address (should have VPN too, but too bad) */
 #define PPN(va)		(((u_long)(va))>>12)
+#define VPN(va)		PPN(va)
 
 /* offset in page */
 #define PGOFF(va)		(((u_long)(va)) & 0xFFF)
@@ -441,8 +442,8 @@ extern u_long npage;
 typedef u_long Pte;
 typedef u_long Pde;
 
-extern Pte vpt[];     /* VA of "virtual page table" */
-extern Pde vpd[];     /* VA of current page directory */
+extern volatile Pte vpt[];     // VA of "virtual page table"
+extern volatile Pde vpd[];     // VA of current page directory
 
 #endif /* !__ASSEMBLER__ */
 

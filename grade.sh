@@ -1,90 +1,200 @@
 #!/bin/sh
 
+verbose=false
 
-fault() {
+if [ "x$1" = "x-x" ]
+then
+	verbose=true
+	out=/dev/stdout
+	err=/dev/stderr
+else
+	out=/dev/null
+	err=/dev/null
+fi
+
+
+runtest() {
 	perl -e "print '$1: '"
-	(
-		rm kern/init.o
-		echo make "DEFS=-DTEST_START=$2_start -DTEST_END=$2_end"
-		make "DEFS=-DTEST_START=$2_start -DTEST_END=$2_end"
-		ulimit -t 10
-		(echo c; echo quit) | bochs -q 'parport1: enable=1, file="bochs.out"'
-	) >/dev/null 2>/dev/null
-	if grep "oesp 0xefbfffdc" bochs.out >/dev/null \
-	&& grep "trap $3"'$' bochs.out >/dev/null \
-	&& grep "err  $4"'$' bochs.out >/dev/null \
-	&& grep "eip  $5"'$' bochs.out >/dev/null
+	rm -f kern/init.o
+	if $verbose
 	then
-		score=`echo 5+$score | bc`
-		echo OK
+		perl -e "print 'gmake $2... '"
+	fi
+	if ! gmake $2 kern/bochs.img >$out
+	then
+		echo gmake failed 
+		exit 1
+	fi
+	(
+		ulimit -t 10
+		(echo c; echo quit) |
+			bochs-nogui 'parport1: enabled=1, file="bochs.out"'
+	) >$out 2>$err
+	if [ ! -s bochs.out ]
+	then
+		echo 'no bochs.out'
 	else
-		echo WRONG
+		shift
+		shift
+		okay=yes
+
+		for i
+		do
+			if ! egrep "^$i\$" bochs.out >/dev/null
+			then
+				echo "missing '$i'"
+				if $verbose
+				then
+					exit 1
+				fi
+				okay=no
+			fi
+		done
+		if [ "$okay" = "yes" ]
+		then
+			score=`echo 5+$score | bc`
+			echo OK
+		else
+			echo WRONG
+		fi
 	fi
 }
 
-preempt() {
-	# Check that alice and bob are running together
-	perl -e "print 'Scheduling: '"
-	(sed -e "s/^env_pop_tf/x&/" <kern/env.c; 
-	echo '
-	
-	void
-	env_pop_tf(struct Trapframe *tf)
-	{
-		printf("%d\n", (struct Env*)tf - envs);
-		asm volatile("movl %0,%%esp\n"
-			"\tpopal\n"
-			"\tpopl %%es\n"
-			"\tpopl %%ds\n"
-			"\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
-			"\tiret"
-			:: "g" (tf) : "memory");
-		panic("iret failed");  /* mostly to placate the compiler */
-	}
-	
-	') >kern/env-test.c
-	(	
-		rm kern/kernel
-		make 'DEFS=-DTEST_ALICEBOB' 'ENV=env-test'
-		ulimit -t 10
-		(echo c; echo quit) | bochs -q 'parport1: enable=1, file="bochs.out"'
-	) >/dev/null 2>/dev/null
-
-	x=`grep '^[01]$' bochs.out`
-	x=`echo $x | tr -d ' '`
-	case $x in
-	*01010101010101010101*)
-		score=`echo 15+$score | bc`
-		echo OK
-		;;
-	*)
-		echo WRONG
-	esac	
+runtest1() {
+	tag=$1
+	shift
+	runtest $tag "DEFS=-DTEST=binary_user_${tag}_start DEFS+=-DTESTSIZE=binary_user_${tag}_size" "$@"
 }
 
-		
 score=0
 
-# Try all the different fault tests
-make clean >/dev/null 2>/dev/null
-fault 'Divide by zero' _div0 0x0 0x0 0x800022
-fault 'Breakpoint' _brkpt 0x3 0x0 0x800021
-fault 'Bad data segment' _badds 0xd 0x8 0x800025
-#fault 'Read nonexistent page' _pgfault_rd_nopage 0xe 0xfffc 0x800020
-#fault 'Read kernel-only page' _pgfault_rd_noperms 0xe 0xfffd 0x800020
-#fault 'Write nonexistent page' _pgfault_wr_nopage 0xe 0xfffe 0x800020
-#fault 'Write kernel-only page' _pgfault_wr_noperms 0xe 0xffff 0x800020
+runtest1 hello \
+	'.00000000. new env 00000800' \
+	'.00000000. new env 00001001' \
+	'hello, world' \
+	'i am environment 00001001' \
+	'.00001001. exiting gracefully' \
+	'.00001001. free env 00001001'
 
-fault 'Read nonexistent page' _pgfault_rd_nopage 0xe 0x4 0x800020
-fault 'Read kernel-only page' _pgfault_rd_noperms 0xe 0x5 0x800020
-fault 'Write nonexistent page' _pgfault_wr_nopage 0xe 0x6 0x800020
-fault 'Write kernel-only page' _pgfault_wr_noperms 0xe 0x7 0x800020
+# the [00001001] tags should have [] in them, but that's 
+# a regular expression reserved character, and i'll be damned
+# if i can figure out how many \ i need to add to get through 
+# however many times the shell interprets this string.  sigh.
+
+runtest pingpong2 'DEFS=-DTEST_PINGPONG2' \
+	'1802 got 0 from 1001' \
+	'1001 got 1 from 1802' \
+	'1802 got 8 from 1001' \
+	'1001 got 9 from 1802' \
+	'1802 got 10 from 1001' \
+	'.00001001. exiting gracefully' \
+	'.00001001. free env 00001001' \
+	'.00001802. exiting gracefully' \
+	'.00001802. free env 00001802'
+
+echo PART A SCORE: $score/10
+
+score=0
+
+runtest1 buggyhello \
+	'.00001001. PFM_KILL va 00000001 ip f01.....' \
+	'.00001001. free env 00001001'
+
+runtest1 evilhello \
+	'.00001001. PFM_KILL va ef800000 ip f01.....' \
+	'.00001001. free env 00001001'
+
+runtest1 fault \
+	'.00001001. user fault va 00000000 ip 0080008b' \
+	'.00001001. free env 00001001'
+
+runtest1 faultdie \
+	'i faulted at va deadbeef, err 6' \
+	'.00001001. exiting gracefully' \
+	'.00001001. free env 00001001' 
+
+runtest1 faultalloc \
+	'fault deadbeef' \
+	'this string was faulted in at deadbeef' \
+	'fault cafebffe' \
+	'fault cafec000' \
+	'this string was faulted in at cafebffe' \
+	'.00001001. exiting gracefully' \
+	'.00001001. free env 00001001'
+
+runtest1 faultallocbad \
+	'.00001001. PFM_KILL va deadbeef ip f01.....' \
+	'.00001001. free env 00001001' 
+
+runtest1 faultbadhandler \
+	'.00001001. PFM_KILL va eebfcffc ip f01.....' \
+	'.00001001. free env 00001001'
+
+runtest1 faultbadstack \
+	'.00001001. PFM_KILL va ef800000 ip f01.....' \
+	'.00001001. free env 00001001'
+
+runtest1 faultgoodstack \
+	'i faulted at va deadbeef, err 6, stack eebfd...' \
+	'.00001001. exiting gracefully' \
+	'.00001001. free env 00001001' 
+
+runtest1 faultevilhandler \
+	'.00001001. PFM_KILL va eebfcffc ip f01.....' \
+	'.00001001. free env 00001001'
+
+runtest1 faultevilstack \
+	'.00001001. PFM_KILL va ef800000 ip f01.....' \
+	'.00001001. free env 00001001'
+
+echo PART B SCORE: $score/55
+
+score=0
+
+runtest1 pingpong1 \
+	'.00000000. new env 00000800' \
+	'.00000000. new env 00001001' \
+	'.00001001. new env 00001802' \
+	'send 0 from 1001 to 1802' \
+	'1802 got 0 from 1001' \
+	'1001 got 1 from 1802' \
+	'1802 got 8 from 1001' \
+	'1001 got 9 from 1802' \
+	'1802 got 10 from 1001' \
+	'.00001001. exiting gracefully' \
+	'.00001001. free env 00001001' \
+	'.00001802. exiting gracefully' \
+	'.00001802. free env 00001802' \
+
+runtest1 pingpong \
+	'.00000000. new env 00000800' \
+	'.00000000. new env 00001001' \
+	'.00001001. new env 00001802' \
+	'send 0 from 1001 to 1802' \
+	'1802 got 0 from 1001' \
+	'1001 got 1 from 1802' \
+	'1802 got 8 from 1001' \
+	'1001 got 9 from 1802' \
+	'1802 got 10 from 1001' \
+	'.00001001. exiting gracefully' \
+	'.00001001. free env 00001001' \
+	'.00001802. exiting gracefully' \
+	'.00001802. free env 00001802' \
+
+runtest1 primes \
+	'.00000000. new env 00000800' \
+	'.00000000. new env 00001001' \
+	'.00001001. new env 00001802' \
+	'2 .00001802. new env 00002003' \
+	'3 .00002003. new env 00002804' \
+	'5 .00002804. new env 00003005' \
+	'7 .00003005. new env 00003806' \
+	'11 .00003806. new env 00004007' 
+
+echo PART C SCORE: $score/15
 
 
-make clean >/dev/null 2>/dev/null
-preempt
 
-make clean >/dev/null 2>/dev/null
 
-echo "Score: $score/50"
+
 

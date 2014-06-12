@@ -14,5 +14,6 @@ BOOT_OBJS := boot/boot.o boot/main.o
 boot/boot: $(BOOT_OBJS)
 	$(LD) -N -e start -Ttext 0x7C00 -o $@.out $^
 	objcopy -S -O binary $@.out $@
+	perl boot/sign.pl boot/boot
 
 

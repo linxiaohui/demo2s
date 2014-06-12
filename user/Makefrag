@@ -1,0 +1,59 @@
+CLEAN_FILES += \
+	user/buggyhello \
+	user/evilhello \
+	user/fairness \
+	user/fault \
+	user/faultalloc \
+	user/faultallocbad \
+	user/faultbadhandler \
+	user/faultbadstack \
+	user/faultdie \
+	user/faultevilhandler \
+	user/faultevilstack \
+	user/faultgoodstack \
+	user/hello \
+	user/idle \
+	user/pingpong \
+	user/pingpong1 \
+	user/pingpong2 \
+	user/pingpongs \
+	user/primes \
+
+USERLIB := \
+	user/fork.o \
+	user/ipc.o \
+	user/libos.o \
+	user/pgfault.o \
+	user/printf.o \
+	user/string.o \
+	user/syscall.o \
+ 
+# For embedding one program in another
+
+user/%: user/%.b.c
+	@echo cc $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
+
+user/%.b.c: user/%.b
+	@echo create $@
+	$(TOP)/user/bintoc $* $< > $@~ && mv -f $@~ $@
+	
+user/%.b: user/entry.o user/%.o $(USERLIB)
+	@echo ld $@
+	@$(LD) -o $@ $(ULDFLAGS) $(LDFLAGS) -nostdlib -T user/user.lds $^
+
+user/%.o: user/%.c
+	@echo user cc $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
+	
+user/%.o: user/%.S
+	@echo as $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
+
+user/%.asm: user/%
+	$(OBJDUMP) --adjust-vma=0x7ff000 -S $^ >$@
+
+user/%.o: lib.h
+
+.PRECIOUS: %.o user/%
+

@@ -7,9 +7,11 @@
 #include <kern/printf.h>
 #include <kern/picirq.h>
 #include <kern/kclock.h>
-    //demo2s_code_start;
+#include <kern/syscall.h>
 
-//exercise 2
+//demo2s_code_start;
+
+//LAB3 exercise 2
 //extern void _clock_interrupt(void);
 //extern _clock_interrupt; //ERROR !!
 
@@ -133,6 +135,11 @@ print_trapframe(struct Trapframe *tf)
 void
 trap(struct Trapframe *tf)
 {
+	// print_trapframe(tf);
+	if (tf->tf_trapno == T_PGFLT) {
+		page_fault_handler(tf);
+		return;
+	}
 
     //demo2s_code_start;
   if (tf->tf_trapno == IRQ_OFFSET+0) {
@@ -162,4 +169,16 @@ trap(struct Trapframe *tf)
 }
 
 
+void
+page_fault_handler(struct Trapframe *tf)
+{
+	u_int va;
+	u_int *tos, d;
+
+	va = rcr2();
+
+	// Fill this in
+	print_trapframe(tf);
+	panic("page fault");
+}
 

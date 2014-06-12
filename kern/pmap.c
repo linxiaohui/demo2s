@@ -514,6 +514,15 @@ page_free(struct Page *pp)
 }
 
 //
+// Decrement the reference count on a page, freeing it if there are no more refs.
+//
+void
+page_decref(struct Page *pp)
+{
+	if (--pp->pp_ref == 0)
+		page_free(pp);
+}
+//
 // This is boot_pgdir_walk with a different allocate function.
 // Unlike boot_pgdir_walk, pgdir_walk can fail, so we have to
 // return pte via a pointer parameter.
@@ -588,6 +597,20 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 }
 
 //
+// Return the page mapped at virtual address 'va'.
+// If ppte is not zero, then we store in it the address
+// of the pte for this page.  This is used by page_remove
+// but should not be used by other callers.
+//
+// Return 0 if there is no page mapped at va.
+//
+// Hint: the TA solution uses pgdir_walk and pa2page.
+//
+struct Page*
+page_lookup(Pde *pgdir, u_long va, Pte **ppte)
+{
+}
+//
 // Unmaps the physical page at virtual address 'va'.
 //
 // Details:
@@ -597,6 +620,9 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 //     (if such a PTE exists)
 //   - The TLB must be invalidated if you remove an entry from
 //	   the pg dir/pg table.
+//
+// Hint: The TA solution is implemented using page_lookup,
+// 	tlb_invalidate, and page_decref.
 //
 // Hint: The TA solution is implemented using
 //  pgdir_walk(), page_free(), tlb_invalidate()
@@ -689,6 +715,18 @@ page_check(void)
 	
 	//demo2s
 	assert(page_alloc(&pp) < 0);//assert(page_alloc(&pp0) < 0); ===>error !! 
+
+	// should be no free memory
+	assert(page_alloc(&pp) == -E_NO_MEM);
+
+	// should be able to map pp2 at BY2PG because it's already there
+	assert(page_insert(boot_pgdir, pp2, BY2PG, 0) == 0);
+	assert(va2pa(boot_pgdir, BY2PG) == page2pa(pp2));
+	assert(pp2->pp_ref == 1);
+
+	// pp2 should NOT be on the free list
+	// could happen in ref counts are handled sloppily in page_insert
+	assert(page_alloc(&pp) == -E_NO_MEM);
 	
 	// should not be able to map at PDMAP because need free page for page table
 	assert(page_insert(boot_pgdir, pp0, PDMAP, 0) < 0);
