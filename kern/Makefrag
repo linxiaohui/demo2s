@@ -82,7 +82,7 @@ KERN_BINFILES := $(foreach file, $(KERN_BINFILES), \
 
 # How to build the kernel itself
 kern/kernel: $(KERN_OBJFILES) $(KERN_BINFILES)
-	$(LD) -o $@ $(KERN_LDFLAGS) $(KERN_OBJFILES) $(GCC_LIB) -b binary $(KERN_BINFILES)
+	$(LD) -o $@ $(KERN_LDFLAGS) $(KERN_OBJFILES) $(GCC_LIB) $(KERN_BINFILES)
 
 # How to build the Bochs disk image
 kern/bochs.img: kern/kernel boot/boot
