@@ -21,7 +21,7 @@ USERLIB := \
  
 # For embedding one program in another
 
-user/%: user/%.b.c
+user/%.lib:user/%.b.c
 	@echo cc $<
 	@$(CC) $(CFLAGS) -c -o $@ $<
 

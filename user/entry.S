@@ -4,11 +4,11 @@
 	// define page-aligned fsipcbuf for fsipc.c
 	// ... and fdtab for file.c
 	.p2align PGSHIFT
-	.globl _fsipcbuf
-_fsipcbuf:
+	.globl fsipcbuf
+fsipcbuf:
 	.space BY2PG
-	.globl _fdtab
-_fdtab:
+	.globl fdtab
+fdtab:
 	.space BY2PG
 	.globl envs
 	.set envs, UENVS
