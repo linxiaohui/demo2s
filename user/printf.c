@@ -11,7 +11,6 @@
 static char *
 printnum(u_int uq, int base, char *buf, int *lenp)
 {				/* A quad in binary, plus NULL. */
-	static char buf[sizeof(u_quad_t) * 8 + 1];
 	register char *p;
 
 	p = buf;
@@ -282,11 +281,6 @@ _panic(const char *file, int line, const char *fmt,...)
 	char buf[256];
 	int n;
 
-	if (panicstr) {
-		sys_cputs("recursive panic\n");
-		goto dead;
-	}
-	panicstr = fmt;
 
 	va_start(ap, fmt);
 	n = snprintf(buf, sizeof buf, "user panic at %s:%d: ", file, line);
@@ -295,7 +289,6 @@ _panic(const char *file, int line, const char *fmt,...)
 	va_end(ap);
 	sys_cputs(buf);
 
-dead:
 	for(;;);
 }
 

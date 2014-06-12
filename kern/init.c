@@ -86,7 +86,7 @@ i386_init(void)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(user_pingpong2);
 	ENV_CREATE(user_pingpong2);
-#elif define __LAB__4__
+#elif defined __LAB__4__
 	// Touch all you want.
 	//ENV_CREATE(user_hello);
 

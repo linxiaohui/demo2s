@@ -341,14 +341,14 @@ syscall(u_int sn, u_int a1, u_int a2, u_int a3, u_int a4, u_int a5)
 		sys_yield();
 		return 0;
 	case SYS_env_destroy:
-		sys_env_destroy();
+		sys_env_destroy(a1);
 		return 0;
 	case SYS_env_alloc:
 		return sys_env_alloc();
 	case SYS_ipc_can_send:
-		return sys_ipc_can_send(a1,a2);
+		return sys_ipc_can_send(a1,a2,a3,a4);
 	case SYS_ipc_recv:
-		sys_ipc_recv();
+		sys_ipc_recv(a1);
 		return 0;
 	case SYS_set_pgfault_handler:
 		return sys_set_pgfault_handler(a1,a2,a3);
