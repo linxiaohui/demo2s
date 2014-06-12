@@ -17,6 +17,12 @@ libmain(int argc, char **argv)
 	umain(argc, argv);
 
 	// exit gracefully
+	exit();
+}
+void
+exit(void)
+{
+	close_all();
 	sys_env_destroy(0);
 }
 

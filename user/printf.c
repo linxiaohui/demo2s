@@ -268,7 +268,7 @@ snprintf(char *buf, int n, const char *fmt, ...)
  * Variable panicstr contains argument to first call to panic; used as flag
  * to indicate that the kernel has already called panic.
  */
-
+char *argv0;
 /*
  * Panic is called on unresolvable fatal errors.
  * It prints "panic: mesg", and then enters an infinite loop.
@@ -283,12 +283,16 @@ _panic(const char *file, int line, const char *fmt,...)
 
 
 	va_start(ap, fmt);
-	n = snprintf(buf, sizeof buf, "user panic at %s:%d: ", file, line);
+	n = 0;
+	if (argv0)
+		n += snprintf(buf+n, sizeof buf-n, "%s: ", argv0);
+	n += snprintf(buf+n, sizeof buf-n, "user panic at %s:%d: ", file, line);
 	n += vsnprintf(buf+n, sizeof buf-n, fmt, ap);
 	n += snprintf(buf+n, sizeof buf-n, "\n");
 	va_end(ap);
 	sys_cputs(buf);
 
+	exit();
 	for(;;);
 }
 
@@ -301,7 +305,10 @@ warn(const char *fmt, ...)
 	int n;
 
 	va_start(ap, fmt);
-	n = snprintf(buf, sizeof buf, "warning: ");
+	n = 0;
+	if (argv0)
+		n += snprintf(buf+n, sizeof buf-n, "%s: ", argv0);
+	n += snprintf(buf+n, sizeof buf-n, "warning: ");
 	n += vsnprintf(buf+n, sizeof buf-n, fmt, ap);
 	n += snprintf(buf+n, sizeof buf-n, "\n");
 	va_end(ap);

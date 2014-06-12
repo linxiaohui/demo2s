@@ -27,9 +27,9 @@ fsipc(u_int type, void *fsreq, u_int dstva, u_int *perm)
 // Includes path and omode in request, sets *fileid and *size from reply.
 // Returns 0 on success, < 0 on failure.
 int
-fsipc_open(const char *path, u_int omode, u_int *fileid, u_int *size)
+fsipc_open(const char *path, u_int omode, struct Fd *fd)
 {
-	int r;
+	u_int perm;
 	struct Fsreq_open *req;
 
 	req = (struct Fsreq_open*)fsipcbuf;
@@ -38,8 +38,7 @@ fsipc_open(const char *path, u_int omode, u_int *fileid, u_int *size)
 	strcpy(req->req_path, path);
 	req->req_omode = omode;
 
-	if ((r = fsipc(FSREQ_OPEN, req, 0, 0)) < 0)
-		return r;
+	return fsipc(FSREQ_OPEN, req, (u_int)fd, &perm);
 
 	if (fileid)
 		*fileid = req->req_fileid;
@@ -64,7 +63,7 @@ fsipc_map(u_int fileid, u_int offset, u_int dstva)
 	req->req_offset = offset;
 	if ((r=fsipc(FSREQ_MAP, req, dstva, &perm)) < 0)
 		return r;
-	if ((perm&~PTE_W) != (PTE_U|PTE_P))
+	if ((perm&~(PTE_W|PTE_LIBRARY)) != (PTE_U|PTE_P))
 		panic("fsipc_map: unexpected permissions %08x for dstva %08x", perm, dstva);
 	return 0;
 }

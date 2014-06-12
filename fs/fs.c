@@ -5,7 +5,7 @@ struct Super *super;
 u_int nbitmap;		// number of bitmap blocks
 u_int *bitmap;		// bitmap blocks mapped in memory
 
-void file_decref(struct File*);
+/*void file_decref(struct File*);*///LAB6
 void file_flush(struct File*);
 int block_is_free(u_int);
 
@@ -173,6 +173,9 @@ block_is_free(u_int blockno)
 void
 free_block(u_int blockno)
 {
+	// Blockno zero is the null pointer of block numbers.
+	if (blockno == 0)
+		panic("attempt to free zero block");
 	bitmap[blockno/32] |= 1<<(blockno%32);
 }
 
@@ -331,6 +334,7 @@ file_block_walk(struct File *f, u_int filebno, u_int **ppdiskbno, u_int alloc)
 		}
 		if ((r=read_block(f->f_indirect, &blk, 0)) < 0)
 			return r;
+		assert(blk != 0);
 		ptr = (u_int*)blk + filebno;
 	} else
 		return -E_INVAL;
@@ -387,7 +391,7 @@ file_get_block(struct File *f, u_int filebno, void **blk)
 
 	//demo2s_code_start;
 	//read in the block, leaving the pointer in *blk.
-	// read in the block, leaving the pointer in *blk.
+	// IN LAB6 Don't need to maintain reference counts anymore.
 	if((r=file_map_block(f,filebno,&diskbno,1))<0)
 		return r;
 	
@@ -442,7 +446,8 @@ dir_lookup(struct File *dir, char *name, struct File **file)
 		for (j=0; j<FILE2BLK; j++)
 			if (strcmp(f[j].f_name, name) == 0) {
 				*file = &f[j];
-				f[j].f_ref++;
+				/*LAB6*//*f[j].f_ref++;*/
+				f[j].f_dir = dir;
 				return 0;
 			}
 	}
@@ -466,7 +471,7 @@ dir_alloc_file(struct File *dir, struct File **file)
 		for (j=0; j<FILE2BLK; j++)
 			if (f[j].f_name[0] == '\0') {
 				*file = &f[j];
-				f[j].f_ref++;
+				/*f[j].f_ref++;*///LAB6
 				return 0;
 			}
 	}
@@ -475,7 +480,7 @@ dir_alloc_file(struct File *dir, struct File **file)
 		return r;
 	f = blk;
 	*file = &f[0];
-	f[0].f_ref++;
+	/*f[0].f_ref++;*///LAB6
 	return 0;		
 }
 
@@ -502,11 +507,11 @@ walk_path(char *path, struct File **pdir, struct File **pfile, char *lastelem)
 	struct File *dir, *file;
 	int r;
 
-	if (*path != '/')
-		return -E_BAD_PATH;
+	// if (*path != '/')
+	//	return -E_BAD_PATH;
 	path = skip_slash(path);
 	file = &super->s_root;
-	file->f_ref++;
+	/*file->f_ref++;*///LAB6
 	dir = 0;
 	name[0] = 0;
 
@@ -531,8 +536,8 @@ walk_path(char *path, struct File **pdir, struct File **pfile, char *lastelem)
 			if(r == -E_NOT_FOUND && *path == '\0') {
 				if(pdir)
 					*pdir = dir;
-				else
-					file_decref(dir);
+				/*else
+					file_decref(dir);*///LAB6
 				if (lastelem)
 					strcpy(lastelem, name);
 				*pfile = 0;
@@ -543,8 +548,8 @@ walk_path(char *path, struct File **pdir, struct File **pfile, char *lastelem)
 
 	if(pdir)
 		*pdir = dir;
-	else
-		file_decref(dir);
+	/*else
+		file_decref(dir);*///LAB6
 	*pfile = file;
 	return 0;
 }
@@ -574,17 +579,17 @@ file_create(char *path, struct File **file)
 	struct File *dir, *f;
 
 	if ((r = walk_path(path, &dir, &f, name)) == 0) {
-		file_decref(dir);
-		file_decref(f);
+		/*file_decref(dir);
+		file_decref(f);*///LAB6
 		return -E_FILE_EXISTS;
 	}
 	if (r != -E_NOT_FOUND || dir == 0)
 		return r;
 	if (dir_alloc_file(dir, &f) < 0) {
-		file_decref(dir);
+		/*file_decref(dir);*///LAB6
 		return r;
 	}
-	file_decref(dir);
+	/*file_decref(dir);*////LAB6
 	strcpy(f->f_name, name);
 	*file = f;
 	return 0;
@@ -597,7 +602,8 @@ file_create(char *path, struct File **file)
 // figure out the number of blocks required.
 // and then clear the blocks from new_nblocks to old_nblocks.
 // If the new_nblocks is no more than NDIRECT, free the indirect
-// block too.
+// block too.  (Remember to clear the f->f_indirect pointer so
+// you'll know whether it's valid!)
 //
 // Hint: use file_clear_block.
 void
@@ -623,10 +629,11 @@ file_set_size(struct File *f, u_int newsize)
 	if (f->f_size > newsize)
 		file_truncate(f, newsize);
 	f->f_size = newsize;
-	file_flush(f->f_dir);
+	if (f->f_dir)
+		file_flush(f->f_dir);
 	return 0;
 }
-
+/*
 void
 file_decref(struct File *f)
 {
@@ -644,6 +651,7 @@ file_decref(struct File *f)
 		file_decref(f->f_dir);
 	}
 }
+*///LAB6
 
 // Flush the contents of file f out to disk.
 // Loop over all the blocks in file.
@@ -685,7 +693,9 @@ fs_sync(void)
 void
 file_close(struct File *f)
 {
-	file_decref(f);
+	file_flush(f);
+	if (f->f_dir)
+		file_flush(f->f_dir);
 }
 
 // Remove a file by truncating it and then zeroing the name.
@@ -693,14 +703,16 @@ int
 file_remove(char *path)
 {
 	int r;
-	struct File *file;
+	struct File *f;
 
-	if ((r = walk_path(path, 0, &file, 0)) < 0)
+	if ((r = walk_path(path, 0, &f, 0)) < 0)
 		return r;
 
-	file_truncate(file, 0);
-	file->f_name[0] = '\0';
-	file_decref(file);
+	file_truncate(f, 0);
+	f->f_name[0] = '\0';
+	file_flush(f);
+	if (f->f_dir)
+		file_flush(f->f_dir);
 
 	return 0;
 }

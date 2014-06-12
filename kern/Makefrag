@@ -39,9 +39,10 @@ KERN_OBJFILES := $(patsubst %.c, %.o, \
 
 
 # Binary program images to embed within the kernel.
-KERN_BINFILE := \
+KERN_BINFILES := \
 	user/buggyhello \
 	user/evilhello \
+	user/exit \
 	user/fairness \
 	user/fault \
 	user/faultalloc \
@@ -53,24 +54,35 @@ KERN_BINFILE := \
 	user/faultevilstack \
 	user/faultgoodstack \
 	user/hello \
-	user/idle \
 	user/icode \
+	user/idle \
+	user/init \
 	user/pingpong \
 	user/pingpong1 \
 	user/pingpong2 \
 	user/pingpongs \
+	user/pipereadeof \
+	user/pipewriteeof \
 	user/primes \
+	user/primespipe \
+	user/testfdsharing \
 	user/testfsipc \
+	user/testkbd \
+	user/testpipe \
+	user/testpiperace \
+	user/testpiperace2 \
+	user/testptelibrary \
+	user/testshell \
 	user/writemotd \
+	fs/fs \
 
-KERN_BINFILES := $(foreach file, $(KERN_BINFILE), \
-			$(shell test -f $(file).c && echo $(file).lib))
+KERN_BINFILES := $(foreach file, $(KERN_BINFILES), \
+			$(shell test -f $(file).c && echo $(file)))
 
-KERN_BINFILES += fs/fs
 
 # How to build the kernel itself
 kern/kernel: $(KERN_OBJFILES) $(KERN_BINFILES)
-	$(LD) -o $@ $(KERN_LDFLAGS) $(KERN_OBJFILES) $(GCC_LIB) $(KERN_BINFILES)
+	$(LD) -o $@ $(KERN_LDFLAGS) $(KERN_OBJFILES) $(GCC_LIB) -b binary $(KERN_BINFILES)
 
 # How to build the Bochs disk image
 kern/bochs.img: kern/kernel boot/boot

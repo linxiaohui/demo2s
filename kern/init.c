@@ -120,6 +120,8 @@ i386_init(void)
 	ENV_CREATE(user_icode);
 #endif
 
+	// Should not be necessary - drain keyboard because interrupt has given up.
+	kbd_intr();
 
 	sched_yield();
 	panic("init.c: end of i386_init() reached!");

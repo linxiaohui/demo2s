@@ -159,11 +159,12 @@ trap(struct Trapframe *tf)
 	case IRQ_OFFSET+0:   	// irq 0 -- clock interrupt
     sched_yield();
     return;//sched_yield never returned
-		
+	case IRQ_OFFSET+4:
+		serial_intr();
+		return;		
 	case IRQ_OFFSET+1:
 	case IRQ_OFFSET+2:
 	case IRQ_OFFSET+3:
-	case IRQ_OFFSET+4:
 	case IRQ_OFFSET+5:
 	case IRQ_OFFSET+6:
 	case IRQ_OFFSET+7:

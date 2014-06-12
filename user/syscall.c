@@ -127,4 +127,10 @@ sys_panic(char *msg)
 	syscall(SYS_panic, (u_int)msg, 0, 0, 0, 0);
 }
 
+int
+sys_cgetc(void)
+{
+	panic("sys_cgetc not implemented");
+	return -E_INVAL;
+}
 

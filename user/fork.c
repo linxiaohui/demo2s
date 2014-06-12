@@ -2,6 +2,7 @@
 
 #include "lib.h"
 
+#define debug 0
 #define PTE_COW		0x800
 
 extern void __asm_pgfault_handler(void);

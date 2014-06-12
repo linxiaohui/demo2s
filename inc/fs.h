@@ -1,7 +1,7 @@
 // See COPYRIGHT for copyright information.
 
 #ifndef _FS_H_
-#define _FS_H_
+#define _FS_H_ 1
 
 #include <inc/types.h>
 
@@ -32,10 +32,12 @@ struct File {
 	u_int f_indirect;
 
 	// The remaining fields are only valid in memory, not on disk.
-	u_int f_ref;			// number of current opens
+	/*u_int f_ref;*/ //LAB6			// number of current opens
 	struct File *f_dir;
 
-	u_char f_pad[256-MAXNAMELEN-4-4-NDIRECT*4-4-4-4];
+	/*u_char f_pad[256-MAXNAMELEN-4-4-NDIRECT*4-4-4-4];*///LAB6
+	u_char f_pad[256-MAXNAMELEN-4-4-NDIRECT*4-4-4];
+	
 };
 
 #define FILE2BLK	(BY2BLK/sizeof(struct File))
@@ -70,8 +72,8 @@ struct Super {
 struct Fsreq_open {
 	char req_path[MAXPATHLEN];
 	u_int req_omode;
-	u_int req_fileid;
-	u_int req_size;
+/*	u_int req_fileid;
+	u_int req_size;*/ //LAB6
 };
 
 struct Fsreq_map {

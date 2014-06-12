@@ -93,7 +93,9 @@ sys_ipc_can_send(u_int envid, u_int value, u_int srcva, u_int perm)
 		    (perm&~(PTE_U|PTE_P|PTE_AVAIL|PTE_W)))
 			return -E_INVAL;
 		p = page_lookup(curenv->env_pgdir, srcva, 0);
-		if (p == 0)
+		if (p == 0) {
+			printf("[%08x] page_lookup %08x failed in sys_ipc_can_send\n",
+				curenv->env_id, srcva);
 			return -E_INVAL;
 		r = page_insert(e->env_pgdir, p, e->env_ipc_dstva, perm);
 		if (r < 0)

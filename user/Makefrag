@@ -1,53 +1,61 @@
-OBJDIRS += user
 CLEAN_FILES += \
-	user/idle \
-	user/pingpong \
-	user/primes \
+	user/buggyhello \
+	user/evilhello \
+	user/echo \
+	user/exit \
+	user/fairness \
+	user/fault \
+	user/faultalloc \
+	user/faultallocbad \
+	user/faultbadhandler \
+	user/faultbadstack \
+	user/faultdie \
+	user/faultevilhandler \
+	user/faultevilstack \
+	user/faultgoodstack \
+	user/hello \
 	user/icode \
-	user/testfsipc \
+	user/idle \
 	user/init \
+	user/pingpong \
+	user/pingpong1 \
+	user/pingpong2 \
+	user/pingpongs \
+	user/primes \
+	user/primespipe \
+	user/testfsipc \
+	user/testpipe \
+	user/testshell \
+	user/writemotd \
+
+OBJDIRS += user
 
 USERLIB := \
-        user/file.o \
+	user/console.o \
+	user/fd.o \
+	user/file.o \
 	user/fork.o \
-        user/fsipc.o \
+	user/fprintf.o \
+	user/fsipc.o \
 	user/ipc.o \
 	user/libos.o \
+	user/pageref.o \
 	user/pgfault.o \
+	user/pipe.o \
 	user/printf.o \
-        user/spawn.o \
+	user/spawn.o \
 	user/string.o \
 	user/syscall.o \
- 
-# For embedding one program in another
+	user/wait.o \
 
-user/%.lib:user/%.b.c
-	@echo cc $<
-	@$(CC) $(CFLAGS) -c -o $@ $<
-
-user/%.b.c: user/%.b
-	@echo create $@
-	$(TOP)/user/bintoc $* $< > $@~ && mv -f $@~ $@
-	
-user/%.b: user/entry.o user/%.o $(USERLIB)
+user/%: user/entry.o user/%.o $(USERLIB)
 	@echo ld $@
-	@$(LD) -o $@ $(ULDFLAGS) $(LDFLAGS) -nostdlib -T user/user.lds $^
-
-user/%.o: user/%.c
-	@echo user cc $<
-	@$(CC) $(CFLAGS) -c -o $@ $<
-	
-user/%.o: user/%.S
-	@echo as $<
-	@$(CC) $(CFLAGS) -c -o $@ $<
+	@$(LD) -o $@ $(ULDFLAGS) $(LDFLAGS) -nostdlib $^
 
 user/%.asm: user/%
-	$(OBJDUMP) --adjust-vma=0x7ff000 -D -S $^ >$@
+	$(OBJDUMP) --adjust-vma=0x7ff000 -S $^ >$@
 
 user/%.o: lib.h
-
-user/%: user/%.b 
-	cp -f $< $@
 
 .PRECIOUS: %.o user/%
 
