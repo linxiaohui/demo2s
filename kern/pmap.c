@@ -259,7 +259,8 @@ i386_vm_init(void)
 	// demo2s_code_end;
 	check_boot_pgdir();
 
-/* 	for(n=0;n<PDE2PD;n++) { 
+/* Entries in the page directory 	
+	for(n=0;n<PDE2PD;n++) { 
  		printf("%d\t%p\n",n,pgdir[n]); 
  	} 
   */  
@@ -279,6 +280,12 @@ i386_vm_init(void)
 
 	// Map VA 0:4MB same as VA KERNBASE, i.e. to PA 0:4MB.
 	// (Limits our kernel to <4MB)
+	
+	/* demo2s
+		map the first entry of the page directory to the page table of the first 4 MB of RAM
+		因为在前面已经将物理地址[0,2^32-1-KERNBASE]映射到虚拟地址[KERNBASE,2^32-1]
+		在打开页式寻址模式(lcr0)后,重新装载段寄存器前还能继续正确寻址
+	*/
 	pgdir[0] = pgdir[PDX(KERNBASE)];
 	// This mapping was only used after paging was turned on but
 	// before the segment registers were reloaded.
@@ -303,6 +310,7 @@ i386_vm_init(void)
 	asm volatile("movw %%ax,%%ds" :: "a" (GD_KD));
 	asm volatile("movw %%ax,%%ss" :: "a" (GD_KD));
 	asm volatile("ljmp %0,$1f\n 1:\n" :: "i" (GD_KT));  // reload cs
+	/* asm volatile("lldt %0" :: "m" (0)); */ /* gcc 3.3 OK. 4.x Compile Error*/
 	asm volatile("lldt %%ax"::"a"(0));
 
 	// Final mapping: KERNBASE+x => KERNBASE+x => x.
