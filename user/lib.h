@@ -73,6 +73,7 @@ int	sys_mem_unmap(u_int, u_int);
 int	sys_set_trapframe(u_int, struct Trapframe*);
 void	sys_panic(char*);
 int	sys_cgetc(void);
+void    sys_set_color(int);
 
 // This must be inlined.  
 // Exercise for reader: why?
@@ -113,7 +114,7 @@ int	stat(const char *path, struct Stat*);
 // file.c
 int	open(const char *path, int mode);
 int	read_map(int fd, u_int offset, void **blk);
-int	delete(const char *path);
+int	remove(const char *path);
 int	ftruncate(int fd, u_int size);
 int	sync(void);
 

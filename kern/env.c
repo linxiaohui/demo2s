@@ -170,6 +170,7 @@ env_alloc(struct Env **new, u_int parent_id)
 	e->env_pgfault_handler = 0;
 	e->env_xstacktop = 0;
 
+	e->env_runs=0;
 	// commit the allocation
 	LIST_REMOVE(e, env_link);
 	*new = e;
@@ -330,7 +331,7 @@ env_run(struct Env *e)
 
   curenv=e;
   lcr3(e->env_cr3);
-
+	e->env_runs++;
   env_pop_tf(&e->env_tf);
 	//demo2s_code_end;
 // Hint: Skip step 1 until exercise 4.  You don't

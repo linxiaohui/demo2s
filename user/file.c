@@ -28,11 +28,39 @@ int
 open(const char *path, int mode)
 {
 	//demo2s_code_start;
+	int 	r;
+	u_int 	fbno;
+	u_int 	i;
+	struct Fd * fd;
+	struct Filefd * ffd;
+
 	//find an unused file descriptor
-	panic("open() unimplemented!");
+	if((r=fd_alloc(&fd))<0) {
+		if(debug) printf("fd_alloc error\n");
+		return r;
+	}
+
 	//make an IPC request to file server to open a file
+	
+	if((r=fsipc_open(path,mode,fd))<0) {
+		if(debug) printf("fs_ipc_open error\n");
+		return r;
+	}
+	
+
+	ffd=(struct Filefd *)fd;
+
+	
 	//map all the pages 
+	fbno = (ffd->f_file.f_size+BY2BLK-1)/BY2BLK;
+	for(i=0;i<fbno;i++)
+		if((r=fsipc_map(ffd->f_fileid,i,fd2data(fd)+i*BY2BLK))<0) {
+			if(debug) printf("fs_ipc_map %d error\n",i);
 			// those already mapped?
+			return r;
+		}
+	
+	return fd2num(fd);
 	//demo2s_code_end;
 }
 
@@ -41,10 +69,32 @@ int
 file_close(struct Fd *fd)
 {
 	//demo2s_code_start;
+	int 	r;
+	u_int 	fbno;
+	u_int 	i;
+	int basepage;
+
+	basepage=fd2data(fd)/BY2PG;
+
+	struct Filefd *ffd;
+
+	ffd=(struct Filefd*)fd;
+
 	//notify the file server pages that has been modified
+	fbno = (ffd->f_file.f_size+BY2BLK-1)/BY2BLK;
+	for(i=0;i<fbno;i++)
+		if(vpt[basepage+i]&PTE_D)
+			fsipc_dirty(ffd->f_fileid,i);
+	
 	//make a request to close the file
+	if((r=fsipc_close(ffd->f_fileid))<0)
+		return r;
+	
 	//unmap all mapped pages in the reserved file-mapping region
-	panic("close() unimplemented!");
+	for (i =0; i <PDMAP; i+=BY2PG)
+		if ((r = sys_mem_unmap(0, basepage*BY2PG+i)) < 0)
+		panic("close: sys_mem_unmap %08x: %e",fd2data(fd)+i, r);
+	return 0;
 	//demo2s_code_end;
 }
 

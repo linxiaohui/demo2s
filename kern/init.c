@@ -10,16 +10,21 @@
 #include <kern/kclock.h>
 #include <kern/sched.h>
 
+#define DEBUG 
 void
-i386_init(void)
+i386_init(u_long l,u_long h)
 {
 	// can't call printf until after cons_init()
 	cons_init();
 
+	printf("b=%d,e=%d\n",l/1024/1024,h/1024/1024);
+#ifdef DEBUG
+	printf("%C",F_YELLOW);
 	printf("6828 decimal is %o octal!\n", 6828);
+#endif
 
 	// Lab 2 initialization functions
-	i386_detect_memory();
+	i386_detect_memory(l,h);
 	i386_vm_init();
 	page_init();
 	page_check();

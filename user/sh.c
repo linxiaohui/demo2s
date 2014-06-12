@@ -105,7 +105,20 @@ again:
 			}
 			// Your code here -- open t for reading,
 			// dup it onto fd 0, and then close the fd you got.
-			panic("< redirection not implemented");
+			//demo2s_code_start;
+			if((fd=open(t,O_RDONLY))<0) {
+				panic("%e\t%s",fd,t);
+				break;
+			}
+			if((r=dup(fd,0))<0) {
+				panic("can not dup! %e",r);
+				break;
+			}
+			if((r=close(fd))<0) {
+				panic("can not close %d! %e",fd,r);
+				break;
+			}
+
 			break;
 		case '>':
 			if(gettoken(0, &t) != 'w'){
@@ -114,17 +127,64 @@ again:
 			}
 			// Your code here -- open t for writing,
 			// dup it onto fd 1, and then close the fd you got.
-			panic("> redirection not implemented");
+			if((fd=open(t,O_WRONLY))<0) {
+				panic("%e\t%s",fd,t);
+				break;
+			}
+			/*if((r=ftruncate(fd,0))<0) {
+				printf("can not truncate! %e",r);
+				break;
+			}
+			if((r=close(fd))<0) {
+				panic("can not close %d! %e",fd,r);
+				break;
+			}
+			*/
+			if((fd=open(t,O_WRONLY))<0) {
+				panic("%e\t%s",fd,t);
+				break;
+			}
+			if((r=dup(fd,1))<0) {
+				panic("can not dup! %e",r);
+				break;
+			}
+			if((r=close(fd))<0) {
+				panic("can not close %d! %e",fd,r);
+				break;
+			}
 			break;
 		case '|':
 			// Your code here.
 			// 	First, allocate a pipe.
+			if((r=pipe(p))<0) {
+				panic("can not pipe! %e",r);
+				break;
+			}
 			//	Then fork.
+			if((r=fork())<0) {
+				panic("fork %e",r);
+				break;
+			}
 			//	the child runs the right side of the pipe:
 			//		dup the read end of the pipe onto 0
 			//		close the read end of the pipe
 			//		close the write end of the pipe
 			//		goto again, to parse the rest of the command line
+			if(r==0) {
+				if((r=dup(p[0],0))<0) {
+					panic("dup %e",r);
+					break;
+				}
+				if((r=close(p[0]))<0) {
+					panic("close read end %e",r);
+					break;
+				}
+				if((r=close(p[1]))<0) {
+					panic("close write end %e",r);
+					break;
+				}
+				goto again;
+			}
 			//	the parent runs the left side of the pipe:
 			//		dup the write end of the pipe onto 1
 			//		close the write end of the pipe
@@ -132,7 +192,21 @@ again:
 			//		set "rightpipe" to the child envid
 			//		goto runit, to execute this piece of the pipeline
 			//			and then wait for the right side to finish
-			panic("| not implemented");
+			rightpipe=r;
+			if((r=dup(p[1],1))<0) {
+				panic("dup %e",r);
+				break;
+			}
+			if((r=close(p[0]))<0) {
+				panic("close write end %e",r);
+				break;
+			}
+			if((r=close(p[1]))<0) {
+				panic("close read end %e",r);
+				break;
+			}
+			goto runit;
+			//demo2s_code_end;
 			break;
 		}
 	}
@@ -155,7 +229,7 @@ runit:
 	if (r >= 0) {
 		if (debug) printf("[%08x] WAIT %s %08x\n", env->env_id, argv[0], r);
 		wait(r);
-		if (debug) printf("[%08x] wait finished\n", env->env_id);
+		if (debug) printf("[%08x] wait %08x finished\n", env->env_id,r);
 	}
 	if (rightpipe) {
 		if (debug) printf("[%08x] WAIT right-pipe %08x\n", env->env_id, rightpipe);

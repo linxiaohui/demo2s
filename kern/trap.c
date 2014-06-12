@@ -39,6 +39,7 @@ extern void _clockrpt(void);
 //exercise 3
 extern void clock(void);
 
+extern void _keybdrpt(void);
 //demo2s_code_end;
 
 
@@ -103,6 +104,8 @@ idt_init(void)
 
     //exercise 2
     //SETGATE(idt[0+IRQ_OFFSET],0,0x8,_clock_interrupt,0);//dpl ?
+	
+	SETGATE(idt[IRQ_OFFSET+1],0,0x8,_keybdrpt,3);
     
 //demo2s_code_end;
 
@@ -163,6 +166,8 @@ trap(struct Trapframe *tf)
 		serial_intr();
 		return;		
 	case IRQ_OFFSET+1:
+		kbd_intr();
+		return;
 	case IRQ_OFFSET+2:
 	case IRQ_OFFSET+3:
 	case IRQ_OFFSET+5:

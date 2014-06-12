@@ -84,8 +84,21 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 	// everybody left is what fd is.  So the other end of
 	// the pipe is closed.
 
-	panic("_pipeisclosed not implemented");
-	return 0;
+	//demo2s_code_start;;
+	u_int t;
+	int r;
+	while(1) {
+		r=0;
+		t=env->env_runs;
+		if(pageref(fd)==pageref(p))
+			r=1;
+		if(t==env->env_runs)
+			return r;
+		if(r==1)
+			printf("pipe race avoided\n");
+	}
+	return r;
+	//demo2s_code_end;
 }
 
 int
@@ -112,9 +125,28 @@ piperead(struct Fd *fd, void *vbuf, u_int n, u_int offset)
 	// some bytes, return what you have instead of yielding.)
 	// If the pipe is empty and closed and you didn't copy any data out, return 0.
 	// Use _pipeisclosed to check whether the pipe is closed.
+	//demo2s_code_start;
+	struct Pipe * p;
+	int i;
+	u_char * buf;
 
-	panic("piperead not implemented");
-	return -E_INVAL;
+	buf=(u_char*)vbuf;
+
+	p=(struct Pipe*)fd2data(fd);
+
+	for(i=0;i<n;i++) {
+		while(p->p_rpos>=p->p_wpos) {//the pipe is empty
+			if(_pipeisclosed(fd,p)) // the pipe is closed
+				return i;
+			if(i==0)
+				sys_yield();
+			else
+				return i;
+		}
+		buf[i]=p->p_buf[p->p_rpos++%BY2PIPE];
+	}
+	return i;
+	//demo2s_code_end;
 }
 
 static int
@@ -128,8 +160,25 @@ pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
 	// If the pipe is full and closed, return 0.
 	// Use _pipeisclosed to check whether the pipe is closed.
 
-	panic("pipewrite not implemented");
-	return -E_INVAL;
+	//demo2s_code_start;
+	struct Pipe * p;
+	int i;
+	u_char * buf;
+
+	buf=(u_char*)vbuf;
+
+	p=(struct Pipe*)fd2data(fd);
+
+	for(i=0;i<n;i++) {
+		while(p->p_rpos+BY2PIPE<=p->p_wpos) { // the pipe is full
+			if(_pipeisclosed(fd,p))  // pipe is closed
+				return 0;
+			sys_yield();
+		}
+		p->p_buf[p->p_wpos++%BY2PIPE]=buf[i];
+	}
+	return i;
+	//demo2s_code_end;
 }
 
 static int
@@ -148,6 +197,7 @@ pipestat(struct Fd *fd, struct Stat *stat)
 static int
 pipeclose(struct Fd *fd)
 {
+	sys_mem_unmap(0,fd);//demo2s_code;
 	sys_mem_unmap(0, fd2data(fd));
 	return 0;
 }

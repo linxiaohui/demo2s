@@ -4,6 +4,7 @@
 #define TMPPAGE		(BY2PG)
 #define TMPPAGETOP	(TMPPAGE+BY2PG)
 
+#define debug 0
 // Set up the initial stack page for the new child process with envid 'child',
 // using the arguments array pointed to by 'argv',
 // which is a null-terminated array of pointers to null-terminated strings.
@@ -103,19 +104,35 @@ spawn(char *prog, char **argv)
 	struct Trapframe 	tf;
 	//	- Open the program file and read the a.out header.
 	if((fd=open(prog,O_RDONLY))<0) {
+		if(debug) printf("open error\n");
 		return fd;
 	}
-	if((r=read(fd,&haout,sizeof(struct Aout)))<0)
+	if((r=read(fd,&haout,sizeof(struct Aout)))<0) {
+		if(debug) printf("read head error!\n");
 		return r;
-	//
+	}
+	// check it whether is an executable file?
+	//printf("%x\n",haout.a_entry);
+	//printf("%x\n",haout.a_magic);
+	if(haout.a_entry!=0x20+UTEXT) {
+		printf("%C",F_RED);
+		printf("%s is not an executable file\n",prog);
+		printf("%C",F_DEFAULT);
+		return -E_INVAL;
+	}
+	
 	//	- Use sys_env_alloc() to create a new environment.
-	if((cid=sys_env_alloc())<0)
+	if((cid=sys_env_alloc())<0) {
+		printf("env_alloc error\n");
 		return cid;
+	}
 	//
 	//	- Call the init_stack() function above to set up
 	//	  the initial stack page for the child environment.
-	if((r=init_stack(cid,argv,&init_esp))<0)
+	if((r=init_stack(cid,argv,&init_esp))<0) {
+		if(debug) printf("init_stack error\n");
 		return r;
+	}
 	//
 	//	- Map the program's text segment, from file offset 0
 	//	  through file offset aout.a_text-1, starting at
@@ -195,6 +212,12 @@ spawn(char *prog, char **argv)
 	//
 	// Remember that the symbol table,is not likely to match what's in the a.out header.
 	// Use the a.out header alone.
+	// Close the file
+	if((r=close(fd))<0) {
+		if(debug) printf("close %e!\n",r);
+		return r;
+	}
+	
 	
 	//
 	//Use the sys_set_trapframe() call to set up the correct initial
@@ -207,6 +230,17 @@ spawn(char *prog, char **argv)
 
 	if((r=sys_set_trapframe(cid,&tf))<0)
 		return r;
+	int i;
+	for(i=0;i<USTACKTOP/BY2PG;) {	/**/
+		if(vpd[i>>10]&PTE_P){
+			if((vpt[i]&PTE_P)&&(vpt[i]&PTE_LIBRARY))
+				sys_mem_map(0,i*BY2PG,cid,BY2PG*i,PTE_USER);
+			i++;
+		}
+		else {
+			i += PDE2PD;
+		}
+	}
 		
 	//Start the child process running with sys_set_env_status().
 	if((r=sys_set_env_status(cid,ENV_RUNNABLE))<0)

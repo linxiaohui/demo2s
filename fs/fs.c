@@ -108,7 +108,7 @@ read_block(u_int blockno, void **blk, u_int *isnew)
 	if((r=sys_mem_alloc(0,va,PTE_W|PTE_U|PTE_P))<0)
 		return r;
 
-	ide_read(1,blockno<<3,va,8);
+	ide_read(DISKNO,blockno<<3,va,8);
 	//demo2s_code_end;	
 	return 0;
 }
@@ -132,7 +132,7 @@ write_block(u_int blockno)
 	
 	va=diskaddr(blockno);
 
-	ide_write(1,blockno<<3,va,8);
+	ide_write(DISKNO,blockno<<3,va,8);
 
 	if((r=sys_mem_map(0,va,0,va,PTE_P|PTE_U|PTE_W))<0){	// the permission should be ??
 		panic("%e\n",r);
@@ -235,7 +235,9 @@ read_super(void)
 	if (super->s_nblocks > DISKMAX/BY2BLK)
 		panic("file system is too large");
 
+#ifdef DEBUG	
 	printf("superblock is good\n");
+#endif	
 }
 
 // Read and validate the file system bitmap.
@@ -267,8 +269,9 @@ read_bitmap(void)
 	assert(!block_is_free(0));
 	assert(!block_is_free(1));
 	assert(bitmap);
-
+#ifdef DEBUG
 	printf("read_bitmap is good\n");
+#endif	
 }
 
 // Test that write_block works, by smashing the superblock and reading it back.
@@ -300,7 +303,9 @@ check_write_block(void)
 	write_block(1);
 	super = (struct Super*)diskaddr(1);
 
+#ifdef DEBUG	
 	printf("write_block is good\n");
+#endif	
 }
 
 // Initialize the file system
@@ -405,9 +410,9 @@ file_get_block(struct File *f, u_int filebno, void **blk)
 
 		ff = *blk;
 		for (i=0; i<FILE2BLK; i++) {
-			ff[i].f_ref = 0;
+			/*ff[i].f_ref = 0;*////LAB6
 			ff[i].f_dir = f;
-			f->f_ref++;
+			/*f->f_ref++;*///LAB6
 		}
 	}
 
@@ -438,7 +443,8 @@ dir_lookup(struct File *dir, char *name, struct File **file)
 	struct File *f;
 
 	// search dir for name
-	nblock = (dir->f_size+BY2BLK-1)/BY2BLK;
+	/*nblock = (dir->f_size+BY2BLK-1)/BY2BLK;*/
+	nblock = dir->f_size / BY2BLK;
 	for (i=0; i<nblock; i++) {
 		if ((r=file_get_block(dir, i, &blk)) < 0)
 			return r;
@@ -618,7 +624,7 @@ file_truncate(struct File *f, u_int newsize)
 	f->f_size   = newsize;
 	for(bno=new_nblocks;bno<old_nblocks;bno++)
 		file_clear_block(f,bno);
-	if(new_nblocks<=NDIRECT)
+	if(old_nblocks>NDIRECT&&new_nblocks<=NDIRECT)
 		free_block(f->f_indirect);
 	//demo2s_code_end;			
 }

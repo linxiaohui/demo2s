@@ -107,6 +107,7 @@ buf_putc(char **pbuf, char *ebuf, int ch)
 	*pbuf = buf;
 }
 
+int color=0x0700;
 int
 vsnprintf(char *buf, int m, const char *fmt, va_list ap)
 {
@@ -204,6 +205,9 @@ vsnprintf(char *buf, int m, const char *fmt, va_list ap)
 			while ((ch = *p++) != '\0')
 				buf_putc(&buf, ebuf, ch);
 			break;
+		case 'C':
+			color=getint(&ap,lflag,qflag);
+			break;
 		case 'd':
 			uq = getint(&ap, lflag, qflag);
 			/*if (qflag && (quad_t) uq < 0) {
@@ -290,7 +294,9 @@ _panic(const char *file, int line, const char *fmt,...)
 	n += vsnprintf(buf+n, sizeof buf-n, fmt, ap);
 	n += snprintf(buf+n, sizeof buf-n, "\n");
 	va_end(ap);
+	sys_set_color(F_RED);
 	sys_cputs(buf);
+	sys_set_color(F_DEFAULT);
 
 	exit();
 	for(;;);
@@ -324,6 +330,7 @@ printf(const char *fmt, ...)
 	va_start(ap, fmt);
 	vsnprintf(buf, sizeof buf, fmt, ap);
 	va_end(ap);
+	sys_set_color(color);
 	sys_cputs(buf);
 }
 

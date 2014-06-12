@@ -40,6 +40,11 @@ sys_cputs(char *a1)
 }
 
 void
+sys_set_color(int c)
+{
+	syscall(SYS_set_color,c,0,0,0,0);
+}
+void
 sys_yield(void)
 {
 	syscall(SYS_yield, 0, 0, 0, 0, 0);
@@ -130,7 +135,7 @@ sys_panic(char *msg)
 int
 sys_cgetc(void)
 {
-	panic("sys_cgetc not implemented");
-	return -E_INVAL;
+	//demo2s_code;
+	return syscall(SYS_cgetc,0,0,0,0,0);
 }
 

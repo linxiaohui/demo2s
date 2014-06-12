@@ -57,7 +57,9 @@ umain(void)
 		if (c1 == '\n')
 			nloff = off+1;
 	}
-	printf("shell ran correctly\n");			
+	printf("%C",F_GREEN);
+	printf("shell ran correctly\n\n");
+	printf("%C",F_DEFAULT);
 }
 
 void

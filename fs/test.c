@@ -32,7 +32,10 @@ fs_test(void)
 	assert(bits[r/32]&(1<<(r%32)));
 	// and is not free any more
 	assert(!(bitmap[r/32]&(1<<(r%32))));
+
+#ifdef DEBUG	
 	printf("alloc_block is good\n");
+#endif
 	
 	if ((r = file_open("/not-found", &f)) < 0 && r != -E_NOT_FOUND)
 		panic("file_open /not-found: %e", r);
@@ -40,26 +43,43 @@ fs_test(void)
 		panic("file_open /not-found succeeded!");
 	if ((r = file_open("/newmotd", &f)) < 0)
 		panic("file_open /newmotd: %e", r);
+	
+#ifdef DEBUG	
 	printf("file_open is good\n");
-
+#endif
+	
 	if ((r = file_get_block(f, 0, &blk)) < 0)
 		panic("file_get_block: %e", r);
 	if(strecmp(blk, msg) != 0)
 		panic("file_get_block returned wrong data");
-	printf("file_get_block is good\n");
 
+#ifdef DEBUG	
+	printf("file_get_block is good\n");
+#endif
+	
 	*(volatile char*)blk = *(volatile char*)blk;
 	assert((vpt[VPN(blk)]&PTE_D));
 	file_flush(f);
 	assert(!(vpt[VPN(blk)]&PTE_D));
+	
+#ifdef DEBUG	
 	printf("file_flush is good\n");
-
+#endif
+	
 	if ((r = file_set_size(f, 0)) < 0)
 		panic("file_set_size: %e", r);
+
+#ifdef DEBUG	
+	printf("file_set_size\n");
+#endif
+	
 	assert(f->f_direct[0] == 0);
 	assert(!(vpt[VPN(f)]&PTE_D));
-	printf("file_truncate is good\n");
 
+#ifdef DEBUG	
+	printf("file_truncate is good\n");
+#endif
+	
 	if ((r = file_set_size(f, strlen(msg))) < 0)
 		panic("file_set_size 2: %e", r);
 	assert(!(vpt[VPN(f)]&PTE_D));
@@ -70,6 +90,9 @@ fs_test(void)
 	file_flush(f);
 	assert(!(vpt[VPN(blk)]&PTE_D));
 	file_close(f);
-	assert(!(vpt[VPN(f)]&PTE_D));	
+	assert(!(vpt[VPN(f)]&PTE_D));
+
+#ifdef DEBUG	
 	printf("file rewrite is good\n");
+#endif	
 }

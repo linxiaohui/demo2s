@@ -60,14 +60,28 @@ nvram_read(int r)
 }
 
 void
-i386_detect_memory(void)
+i386_detect_memory(u_long l,u_long h)
 {
+#ifdef __CMOS__
 	// CMOS tells us how many kilobytes there are
+	// But it can *not* tell more than 64M
 	basemem = ROUNDDOWN(nvram_read(NVRAM_BASELO)*1024, BY2PG);
 	extmem = ROUNDDOWN(nvram_read(NVRAM_EXTLO)*1024, BY2PG);
 
+#else
+	basemem = ROUNDDOWN(nvram_read(NVRAM_BASELO)*1024, BY2PG);
+	extmem=l+h-1024*1024;
+	extmem=(extmem<0)?0:extmem;
+#endif
+	printf("Detecting memory...\n");
+	printf("Physical memory: %dK available, ", (int)(maxpa/1024));
+	printf("base = %dK, extended = %dK\n\n", (int)(basemem/1024), (int)(extmem/1024));
 	// Calculate the maxmium physical address based on whether
 	// or not there is any extended memory.  See comment in ../inc/mmu.h.
+	if(extmem>=255*1024*1024) {
+		printf("This operating system can only manage at most 256M memry!\n\n");
+		extmem=255*1024*1024-1;
+	}
 	if (extmem)
 		maxpa = EXTPHYSMEM + extmem;
 	else
@@ -108,7 +122,7 @@ alloc(u_int n, u_int align, int clear)
 	//	Step 1: round freemem up to be aligned properly
 	/*freemem+=(align-freemem%align)%align;*/
 	freemem=ROUND(freemem,align);
-	if((freemem+n>KERNBASE+maxpa)||freemem+n<freemem) 
+	if((freemem+n>(u_long)KERNBASE+maxpa)||freemem+n<freemem) 
 		panic("out of memory!");
 	
 	//	Step 2: save current value of freemem as allocated chunk
@@ -244,7 +258,7 @@ i386_vm_init(void)
 	// demo2s_code_begin;
 	n=npage*sizeof(struct Page);
 	pages=(struct Page*)alloc(n,BY2PG,1);
-	boot_map_segment(pgdir,UPAGES,n,PADDR(pages),PTE_W|PTE_U);
+	boot_map_segment(pgdir,UPAGES,n,PADDR(pages),PTE_W|PTE_U|PTE_P);
     //boot_map_segment(pgdir,pages,n,PADDR(pages),PTE_W|PTE_U);
 	// demo2s_code_end;
 	//////////////////////////////////////////////////////////////////////
@@ -256,7 +270,7 @@ i386_vm_init(void)
 	// demo2s_code_begin;
 	n=NENV*sizeof(struct Env);
 	envs=(struct Env*)alloc(n,BY2PG,1);
-	boot_map_segment(pgdir,UENVS,n,PADDR(envs),PTE_W|PTE_U);
+	boot_map_segment(pgdir,UENVS,n,PADDR(envs),PTE_W|PTE_U|PTE_P);
     //boot_map_segment(pgdir,envs,n,PADDR(envs),PTE_W|PTE_U);
 	// demo2s_code_end;
 	check_boot_pgdir();
@@ -323,7 +337,7 @@ i386_vm_init(void)
 
 	// Flush the TLB for good measure, to kill the pgdir[0] mapping.
 	lcr3(boot_cr3);
-	printf("i386_vm_init() finished!\n");
+    //	printf("i386_vm_init() finished!\n");
 }
 
 //
@@ -390,7 +404,9 @@ check_boot_pgdir(void)
 	}
 	//printf("zero/non-zero in PDEs OK!\n");
 	
+#ifdef DEBUG	
 	printf("check_boot_pgdir() succeeded!\n");
+#endif
 }
 
 static u_long
@@ -832,6 +848,8 @@ page_check(void)
 	page_free(pp1);
 	page_free(pp2);
 
+#ifdef DEBUG	
 	printf("page_check() succeeded!\n");
+#endif	
 }
 

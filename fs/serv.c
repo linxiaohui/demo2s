@@ -85,11 +85,13 @@ serve_open(u_int envid, struct Fsreq_open *rq)
 	struct Filefd *ff;
 	int fileid;
 	int r;
+	u_int mode;
 	struct Open *o;
 
 	// Copy in the path, making sure it's null-terminated
 	bcopy(rq->req_path, path, MAXPATHLEN);
 	path[MAXPATHLEN-1] = 0;
+	mode=rq->req_omode;
 
 	// Find a file id.
 	if ((r = open_alloc(&o)) < 0) {
@@ -97,23 +99,39 @@ serve_open(u_int envid, struct Fsreq_open *rq)
 		goto out;
 	}
 	fileid = r;
-
+//demo2s_code;
 	// Open the file.
-	if ((r = file_open(path, &f)) < 0) {
-		if (debug) printf("file_open failed: %e", r);
-		goto out;
-	}
+	if(!(mode&O_CREAT)) {
+		if ((r=file_open(path, &f))<0) {
+			if(!(mode&O_WRONLY)) {
+				if (debug) printf("file_open failed: %e", r);
+				goto out;
+			}
 
+			if ((r=file_create(path,&f))<0) {
+				if(debug) printf("file_create failed: %e",r);
+				goto out;
+			}
+		}
+	}
+	else {
+		if ((r=file_create(path,&f))<0) {
+			if(debug) printf("file_create failed: %e",r);
+			goto out;
+		}
+	}
+//demo2s_code_end;
+	// Save the file pointer.
 	o->o_file = f;
 	ff = (struct Filefd*)o->o_ff;
-	ff->f_file = *f;
+	bcopy(f,&ff->f_file,sizeof(ff->f_file));
 	ff->f_fileid = o->o_fileid;
 	o->o_mode = rq->req_omode;
 	ff->f_fd.fd_omode = o->o_mode;
 	ff->f_fd.fd_dev_id = devfile.dev_id;
 
 	if (debug) printf("sending success, page %08x\n", (u_int)o->o_ff);
-	ipc_send(envid, 0, (u_int)o->o_ff, PTE_P|PTE_U|PTE_W);
+	ipc_send(envid, 0, (u_int)o->o_ff, PTE_LIBRARY|PTE_P|PTE_U|PTE_W);
 	return;
 
 out:
@@ -131,20 +149,21 @@ serve_map(u_int envid, struct Fsreq_map *rq)
 	u_int 	offset;
 	u_int* 	dva;
 	struct Open * 	o;
+	dva=0;
 	fileid = rq->req_fileid;
 	offset = rq->req_offset;//the offset of the block
-	if(fileid>=MAXOPEN) {
-		r = -E_INVAL;
+
+	if((r=open_lookup(envid,fileid,&o))<0) {
+		printf("open_lookup error\n");
 	}
 	else {
-		o = opentab+fileid;
 		if(o->o_file==0)
 			r = -E_INVAL;
 		else
 			r = file_get_block(o->o_file,offset,&dva);
 	}
 	//return the result
-	ipc_send(envid,r,dva,PTE_W|PTE_U|PTE_P);
+	ipc_send(envid,r,dva,PTE_LIBRARY|PTE_W|PTE_U|PTE_P);
 //demo2s_code_end;
 }
 
@@ -160,10 +179,10 @@ serve_set_size(u_int envid, struct Fsreq_set_size *rq)
 	struct Open * 	o;
 	fileid = rq->req_fileid;
 	size   = rq->req_size;
-	if(fileid>=MAXOPEN)
-		r = -E_INVAL;
+
+	if((r=open_lookup(envid,fileid,&o))<0)
+		;
 	else {
-		o = opentab+fileid;
 		if(o->o_file==0)
 			r = -E_INVAL;
 		else
@@ -184,17 +203,19 @@ serve_close(u_int envid, struct Fsreq_close *rq)
 	int 		r;
 	struct Open * 	o;
 	fileid = rq->req_fileid;
-	if(fileid>=MAXOPEN)
-		r = -E_INVAL;
-	else {
-		o = opentab+fileid;
+
 		r = 0;
-		if(o->o_file==0)
-			r = -E_INVAL;
-		else
-			file_close(o->o_file);
+	
+	if((r=open_lookup(envid,fileid,&o))<0)
+		;
+	else {
+		/*printf("is this the file?\n");
+		printf("file name %s\n",o->o_file->f_name);
+		printf("the open struct is %d\n",o-opentab);
+		printf("ref is %d\n",pages[PPN(vpt[VPN(o->o_ff)])].pp_ref); //??
+		*/
 	}
-	o->o_file = 0;
+	
 	//return the result
 	ipc_send(envid,r,0,0);
 	//demo2s_code_end;
@@ -230,10 +251,10 @@ serve_dirty(u_int envid, struct Fsreq_dirty *rq)
 	struct Open * 	o;
 	fileid = rq->req_fileid;
 	offset = rq->req_offset;//the offset of the block
-	if(fileid>=MAXOPEN)
-		r = -E_INVAL;
+
+	if((r=open_lookup(envid,fileid,&o))<0)
+		;
 	else {
-		o = opentab+fileid;
 		if(o->o_file==0)
 			r = -E_INVAL;
 		else
@@ -313,6 +334,7 @@ umain(void)
 
 	fs_test();
 
+	printf("File System server test OK!\n\n");
 	serve();
 }
 

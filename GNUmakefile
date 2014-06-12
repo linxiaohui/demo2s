@@ -67,7 +67,21 @@ clean:
 	rm -rf $(CLEAN_FILES) $(foreach dir,$(OBJDIRS), \
 				$(addprefix $(dir)/,$(CLEAN_PATS)))
 
+grade:
+	@make clean >/dev/null 2>/dev/null
+	make all
+	sh grade.sh
+	@make clean >/dev/null 2>/dev/null
 
+# For test runs
+run-%:
+	@rm -f kern/init.o kern/bochs.img
+	@make "DEFS=-DTEST=binary_user_$*_start -DTESTSIZE=binary_user_$*_size" kern/bochs.img fs/fs.img
+	bochs -q
+xrun-%:
+	@rm -f kern/init.o kern/bochs.img
+	@make "DEFS=-DTEST=binary_user_$*_start -DTESTSIZE=binary_user_$*_size" kern/bochs.img fs/fs.img
+	bochs -q
 # This magic automatically generates makefile dependencies
 # for header files included from C source files we compile,
 # and keeps those dependencies up-to-date every time we recompile.

@@ -67,6 +67,10 @@ duppage(u_int envid, u_int pn)
 
 	if((pte&PTE_P)&&(pte&PTE_U)){
 	  
+		if(pte&PTE_LIBRARY) {
+			sys_mem_map(0,addr,envid,addr,PTE_USER);
+			return ;
+		}
 	  if(pte&PTE_W||pte&PTE_COW) {
 	    
 	    r =	sys_mem_map(0,addr,envid,addr,PTE_COW|PTE_U|PTE_P);

@@ -18,19 +18,22 @@ timeout=30
 runtest() {
 	perl -e "print '$1: '"
 	rm -f kern/init.o kern/kernel kern/bochs.img fs/fs.img
+	rm -f user/console.o user/init
+	make user/console-closed.o >$out 2>$err
+	cp user/console-closed.o user/console.o
 	if $verbose
 	then
-		perl -e "print 'gmake $2... '"
+		perl -e "print 'make $2... '"
 	fi
-	if ! gmake $2 kern/bochs.img fs/fs.img >$out
+	if ! make $2 kern/bochs.img fs/fs.img >$out 2>$err
 	then
-		echo gmake failed 
+		echo make failed 
 		exit 1
 	fi
 	(
 		ulimit -t $timeout
-		(echo c; echo die; echo quit) |
-			bochs-nogui 'parport1: enabled=1, file="bochs.out"'
+		(echo c; echo quit) |
+			bochs -q 'parport1: enabled=1, file="bochs.out"'
 	) >$out 2>$err
 	if [ ! -s bochs.out ]
 	then
@@ -149,6 +152,8 @@ runtest1 -tag 'pipe race' testpiperace \
 
 # 10 points - run-testpiperace2
 pts=10
+timeout=180
+echo 'The pipe race 2 test has 3 minutes to complete.  Be patient.'
 runtest1 -tag 'pipe race 2' testpiperace2 \
 	! 'RACE: pipe appears closed' \
 	! 'child detected race' \
@@ -156,8 +161,8 @@ runtest1 -tag 'pipe race 2' testpiperace2 \
 
 # 10 points - run-primespipe
 pts=10
-timeout=120
-echo 'The primes test has up to 2 minutes to complete.  Be patient.'
+timeout=180
+echo 'The primes test has 3 minutes to complete.  Be patient.'
 runtest1 -tag 'primes' primespipe \
 	! 1 2 3 ! 4 5 ! 6 7 ! 8 ! 9 \
 	! 10 11 ! 12 13 ! 14 ! 15 ! 16 17 ! 18 19 \
@@ -167,7 +172,8 @@ runtest1 -tag 'primes' primespipe \
 
 # 20 points - run-testshell
 pts=20
-timeout=60
+timeout=240
+echo 'The shell test has 4 minutes to complete.  Be patient.'
 runtest1 -tag 'shell' testshell \
 	'shell ran correctly' \
 

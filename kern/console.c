@@ -8,6 +8,8 @@
 #include <kern/printf.h>
 #include <kern/picirq.h>
 
+extern void env_destroy(struct Env*e);
+extern struct Env * curenv;
 static unsigned addr_6845;
 static u_short *crt_buf;
 static short crt_pos;
@@ -49,6 +51,10 @@ cons_intr(int (*proc)(void))
 	while ((c = (*proc)()) != -1) {
 		if (c == 0)
 			continue;
+		//demo2s_code;
+		if (c == 3)/*Ctrl-C */
+			env_destroy(curenv);
+		//printf("Ctrl-C has been pressed\n");
 		if (c < 0x80)
 			cons_putc(c);
 		cons.buf[cons.wpos++] = c;

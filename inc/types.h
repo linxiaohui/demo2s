@@ -48,4 +48,52 @@ typedef u_int32_t        size_t;
 #define ROUNDDOWN(a, n)	(((u_long)(a)) & ~((n)-1))
 
 
+/*color definitions*/
+/*
+BLACK 0 ºÚ
+BLUE 1 À¼ 
+GREEN 2 ÂÌ
+CYAN 3 Çà 
+RED 4 ºì 
+MAGENTA 5 Ñóºì
+BROWN 6 ×Ø
+LIGHTGRAY 7 µ­»Ò
+
+DARKGRAY 8 Éî»Ò
+LIGHTBLUE 9 µ­À¼ 
+LIGHTGREEN a µ­ÂÌ
+LIGHTCYAN b µ­Çà
+LIGHTRED c µ­ºì
+LIGHTMAGENTA d µ­Ñóºì 
+YELLOW e »Æ 
+WHITE f °×
+*/
+
+#define F_BLACK       0x0000
+#define F_BLUE        0x0100
+#define F_GREEN       0x0200
+#define F_CYAN        0x0300
+#define F_RED         0x0400
+#define F_MAGENTA     0x0500
+#define F_BROWN       0x0600
+#define F_LIGHTGRAY   0x0700
+#define F_DARKGRAY    0x0800
+#define F_LIGHTBLUE   0x0900
+#define F_LIGHTGREEN  0x0a00
+#define F_LIGHTCYAN   0x0b00
+#define F_LIGHTEAD    0x0c00
+#define F_LIGHTMAGENT 0x0d00
+#define F_YELLOW      0x0e00
+#define F_WHITE       0x0f00
+
+#define F_DEFAULT     0x0000
+
+#define B_BLACK       0x0000
+#define B_BLUE        0x1000
+#define B_GREEN       0x2000
+#define B_CYAN        0x3000
+#define B_RED         0x4000
+#define B_MAGENTA     0x5000
+#define B_BROWN       0x6000
+#define B_LIGHTGRAY   0x7000
 #endif /* !_INC_TYPES_H_ */

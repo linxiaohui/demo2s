@@ -47,7 +47,7 @@ struct a_out_hdr {
 };
 
 void
-cmain(void)
+cmain(u_long low,u_long high)
 {
 	u_int8_t sector[SECTOR_SIZE];
 	struct a_out_hdr *hdr;
@@ -71,7 +71,11 @@ cmain(void)
 		read_sector(i, dest);
 
 	/* jump to the kernel entry point */
-	asm volatile("jmp *%0" : : "a" (kernel_entry_point));
+	//asm volatile("jmp *%0" : : "a" (kernel_entry_point));
+	//demo2s_code;
+	asm volatile("pushl %%edx\n"
+		     "pushl %%ecx\n"
+		     "jmp *%0" : : "a" (kernel_entry_point),"c"(low),"d"(high));
 
 	/* NOT REACHED */
 }

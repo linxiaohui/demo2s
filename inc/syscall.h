@@ -22,6 +22,7 @@ enum
 	SYS_set_trapframe,
 	SYS_panic,
 	SYS_cgetc,
+	SYS_set_color,
 
 	NSYSCALLS,
 };

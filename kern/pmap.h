@@ -15,7 +15,7 @@ extern u_long boot_cr3;
 extern Pde *boot_pgdir;
 
 void i386_vm_init();
-void i386_detect_memory();
+void i386_detect_memory(u_long,u_long);
 void page_init(void);
 void page_check(void);
 int  page_alloc(struct Page **);

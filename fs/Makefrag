@@ -1,7 +1,7 @@
 CLEAN_FILES += \
 	fs/fs \
 	fs/fsformat \
-
+	fs/fs.b \
 
 OBJDIRS += fs
 
@@ -20,6 +20,7 @@ FSIMGFILES := \
 	fs/testshell.key \
 	fs/testshell.out \
 	fs/out \
+	fs/help.msg \
 	user/cat \
 	user/echo \
 	user/init \
@@ -34,8 +35,9 @@ FSIMGFILES := \
 	user/testpipe \
 	user/testptelibrary \
 	user/testshell \
-
-# For embedding one program in another
+	user/testcolor \
+	user/help \
+	user/rm \
 
 fs/fs: fs/fs.b.c
 	@echo cc $<
@@ -45,9 +47,9 @@ fs/fs.b.c: fs/fs.b
 	@echo create $@
 	$(TOP)/fs/bintoc fs $< > $@~ && mv -f $@~ $@
 	
-fs/fs:	user/entry.o $(FSOFILES) $(USERLIB)
+fs/fs.b: user/entry.o $(FSOFILES) $(USERLIB)
 	@echo ld $@
-	@$(LD) -o $@ $(ULDFLAGS) $(LDFLAGS) -nostdlib $^
+	@$(LD) -o $@ $(ULDFLAGS) $(LDFLAGS) -nostdlib -T fs/fs.lds $^ 
 
 fs/fs.asm: fs/fs
 	$(OBJDUMP) --adjust-vma=0x007ff000 -S $^ >$@

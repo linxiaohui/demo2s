@@ -16,11 +16,14 @@ static int
 fsipc(u_int type, void *fsreq, u_int dstva, u_int *perm)
 {
 	u_int whom;
+	int r;
 
 	if (debug) printf("[%08x] fsipc %d %08x\n", env->env_id, type, fsipcbuf);
 
 	ipc_send(envs[1].env_id, type, (u_int)fsreq, PTE_P|PTE_W|PTE_U);
-	return ipc_recv(&whom, dstva, perm);
+	r=ipc_recv(&whom, dstva, perm);
+	assert(whom==envs[1].env_id);
+	return r;
 }
 
 // Send file-open request to the file server.
@@ -40,11 +43,6 @@ fsipc_open(const char *path, u_int omode, struct Fd *fd)
 
 	return fsipc(FSREQ_OPEN, req, (u_int)fd, &perm);
 
-	if (fileid)
-		*fileid = req->req_fileid;
-	if (size)
-		*size = req->req_size;
-	return 0;
 }
 
 // Make a map-block request to the file server.

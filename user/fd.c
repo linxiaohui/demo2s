@@ -44,7 +44,16 @@ fd_alloc(struct Fd **fd)
 	// return the same page the second time.)
 	// Return 0 on success, or an error code on error.
 
-	panic("fd_alloc not implemented");
+	//demo2s_code;
+	int i;
+	for(i=0;i<MAXFD;i++) {
+		*fd=(struct Fd *)INDEX2FD(i);
+		if(!vpd[PDX((u_int)(*fd))]&PTE_P)
+			return 0;
+		if(!vpt[VPN(*fd)]&PTE_P)
+			return 0;
+	}
+	*fd=0;
 	return -E_MAX_OPEN;
 }
 
@@ -62,7 +71,14 @@ fd_lookup(int fdnum, struct Fd **fd)
 	// Check that fdnum is in range and mapped.  If not, return -E_INVAL.
 	// Set *fd to the fd page virtual address.  Return 0.
 
-	panic("fd_lookup not implemented");
+	//demo2s_code;
+	if(fdnum>=0&&fdnum<MAXFD) {
+		*fd=(struct Fd *)INDEX2FD(fdnum);
+		if((vpd[PDX((*fd))]&PTE_P)&&(vpt[VPN((*fd))]&PTE_P)) {
+			return 0;
+		}
+	}
+	*fd=0;
 	return -E_INVAL;
 }
 
@@ -117,8 +133,8 @@ dup(int oldfdnum, int newfdnum)
 	ova = fd2data(oldfd);
 	nva = fd2data(newfd);
 
-	if ((r = sys_mem_map(0, (u_int)oldfd, 0, (u_int)newfd, vpt[VPN(oldfd)]&PTE_USER)) < 0)
-		goto err;
+	/*if ((r = sys_mem_map(0, (u_int)oldfd, 0, (u_int)newfd, vpt[VPN(oldfd)]&PTE_USER)) < 0)
+	  goto err;*/
 	if (vpd[PDX(ova)]) {
 		for (i=0; i<PDMAP; i+=BY2PG) {
 			pte = vpt[VPN(ova+i)];
@@ -129,6 +145,8 @@ dup(int oldfdnum, int newfdnum)
 			}
 		}
 	}
+	if ((r = sys_mem_map(0, (u_int)oldfd, 0, (u_int)newfd, vpt[VPN(oldfd)]&PTE_USER)) < 0)
+		goto err;
 
 	return newfdnum;
 

@@ -91,6 +91,7 @@ getint(va_list *ap, int lflag, int qflag)
 		return va_arg(*ap, u_int);
 }
 
+int color=0x0700;
 void
 kprintf(const char *fmt, va_list ap)
 {
@@ -106,7 +107,7 @@ kprintf(const char *fmt, va_list ap)
 		while ((ch = *(u_char *) fmt++) != '%') {
 			if (ch == '\0')
 				return;
-			cons_putc(ch);
+			cons_putc(ch|color);
 		}
 		lflag = 0;
 		qflag = 0;
@@ -182,7 +183,10 @@ kprintf(const char *fmt, va_list ap)
 			if ((p = va_arg(ap, char *)) == NULL)
 					p = "(null)";
 			while ((ch = *p++) != '\0')
-				cons_putc(ch);
+				cons_putc(ch|color);
+			break;
+		case 'C'://demo2s_code;
+			color=getint(&ap,lflag,qflag);
 			break;
 		case 'd':
 			uq = getint(&ap, lflag, qflag);
@@ -257,7 +261,9 @@ _panic(const char *file, int line, const char *fmt,...)
 	panicstr = fmt;
 
 	va_start(ap, fmt);
+	printf("%C",F_RED);
 	printf("panic at %s:%d: ", file, line);
+	printf("%C",F_DEFAULT);
 	kprintf(fmt, ap);
 	printf("\n");
 	va_end(ap);

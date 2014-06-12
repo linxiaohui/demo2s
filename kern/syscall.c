@@ -10,6 +10,7 @@
 #include <kern/printf.h>
 #include <kern/sched.h>
 
+extern int color;
 // return the current environment id
 static u_int
 sys_getenvid(void)
@@ -24,6 +25,14 @@ sys_cputs(char *s)
   printf("%s",TRUP(s));
 }
 
+static void
+sys_set_color(int c)
+{
+
+	color=c;
+	//printf("%x\t%x\n",c,color);
+	
+}
 // deschedule current environment
 static void
 sys_yield(void)
@@ -39,7 +48,9 @@ sys_env_destroy(u_int envid)
 	struct Env *e;
 	if ((r=envid2env(envid, &e, 1)) < 0)
 		return r;
+#ifdef DEBUG	
 	printf("[%08x] destroying %08x\n", curenv->env_id, e->env_id);
+#endif
 	env_destroy(e);
 	return 0;
 }
@@ -319,6 +330,11 @@ sys_set_trapframe(u_int envid, struct Trapframe *tf)
 	return 0;
 }
 
+static int
+sys_cgetc()
+{
+	return cons_getc();
+}
 static void
 sys_panic(char *msg)
 {
@@ -365,6 +381,11 @@ syscall(u_int sn, u_int a1, u_int a2, u_int a3, u_int a4, u_int a5)
 		return sys_mem_unmap(a1,a2);
 	case SYS_set_trapframe:
 		return sys_set_trapframe(a1,a2);
+	case SYS_cgetc:
+		return sys_cgetc();
+	case SYS_set_color:
+		sys_set_color(a1);
+		return 0;
 	case SYS_panic:
 		sys_panic(a1);
 	default:

@@ -14,7 +14,10 @@
 # This code switches into protected mode(32-bit mode) so that all of
 # memory can accessed, then calls into C.
 ###################################################################################
-	
+#### demo2s_code
+.data
+mem:	.short 0,0,0,0
+.text		
 .globl start					# Entry point	
 start:		.code16				# This runs in real mode
 		cli				# Disable interrupts
@@ -40,7 +43,11 @@ seta20.2:	inb	$0x64,%al		# Get status
 		jnz	seta20.2		# Yes
 		movb	$0xdf,%al		# Enable
 		outb	%al,$0x60		#  A20
-
+#### demo2s_code
+####detect memory amount
+		movw $0xe801,%ax
+		int $0x15
+		
 #### switch from real to protected mode	
 ####     The segments in GDT allow all of physical memory to be accessed.
 ####     Furthermore, the segments have base addresses of 0, so that the
@@ -67,7 +74,14 @@ protcseg:
 		movw	%ax, %fs		#
 		movw	%ax, %gs		#
 		movw	%ax, %ss		#
-	
+#### demo2s_code
+		shll  $0x10,%ecx
+		shrl  $0x6,%ecx
+		addl  $0x100000,%ecx
+		shll  $0x10,%edx
+//	jmp .
+		pushl %edx
+		pushl %ecx	
 		call cmain			# finish the boot load from C.
 						# cmain() should not return
 spin:		jmp spin			# ..but in case it does spin

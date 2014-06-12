@@ -24,9 +24,20 @@ CLEAN_FILES += \
 	user/primes \
 	user/primespipe \
 	user/testfsipc \
+	user/testkbd \
+	user/testptelibrary \
+	user/testfdsharing \
 	user/testpipe \
 	user/testshell \
 	user/writemotd \
+	user/cat \
+	user/num \
+	user/ls \
+	user/sh \
+	user/lsfd \
+	user/testcolor \
+	user/help \
+	user/rm \
 
 OBJDIRS += user
 

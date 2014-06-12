@@ -61,12 +61,13 @@ sched_yield(void)
     }//while
   }//if
   else {
-    i=0;
+		i = 1;
 		while(i<envs+NENV-curenv) {
-      i++;
-			if((curenv+i)->env_status == ENV_RUNNABLE) {
+			if((curenv+i)->env_status
+			   == ENV_RUNNABLE) {
         env_run(curenv+i);
 			}
+			i++;			
     }//while
 		i 				 = 1;
 		while(i<=curenv-envs) {

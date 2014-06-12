@@ -36,6 +36,6 @@ kclock_init(void)
 	outb(IO_TIMER1, TIMER_DIV(100) / 256);
 	printf("	Setup timer interrupts via 8259A\n");
 	irq_setmask_8259A (irq_mask_8259A & ~(1<<0));
-	printf("	unmasked timer interrupt\n");
+	printf("	unmasked timer interrupt\n\n");
 }
 

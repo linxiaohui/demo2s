@@ -56,6 +56,9 @@ mygdtdesc:
 .text
 .globl		start
 start:
+	movl    (%esp),%ebx
+	movl    4(%esp),%edx
+//	jmp .
 	movw	$0x1234,0x472			# warm boot
 	lgdt	RELOC(mygdtdesc)		# load descriptor
 	movl	$DATA_SEL, %eax			# reload seg regs
@@ -81,6 +84,8 @@ relocated:
 	 stosl					# store it!
 	
 	# now to C code
+	pushl   %edx
+	pushl   %ebx
 	call	i386_init
 	
 	
@@ -140,6 +145,7 @@ IDTFNC(mchk,T_MCHK)		;
 
 IDTFNC_NOEC(systemcall,T_SYSCALL)	; 
 IDTFNC_NOEC(clockrpt,IRQ_OFFSET)	;
+IDTFNC_NOEC(keybdrpt,IRQ_OFFSET+1)	;
 	
 _alltraps:
 	pushl	%ds
