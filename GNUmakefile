@@ -54,13 +54,6 @@ include boot/Makefrag
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 
-# For embedding one program in another
-%.b.c: %.b
-	rm -f $@
-	$(TOP)/tools/bintoc/bintoc $< $*_bin > $@~ && $(MV) -f $@~ $@
-%.b.s: %.b
-	rm -f $@
-	$(TOP)/tools/bintoc/bintoc -S $< $*_bin > $@~ && $(MV) -f $@~ $@
 
 bochs: kern/bochs.img
 	bochs -q

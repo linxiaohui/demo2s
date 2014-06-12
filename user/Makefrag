@@ -46,5 +46,8 @@ user/%.asm: user/%
 
 user/%.o: lib.h
 
+user/%: user/%.b 
+	cp -f $< $@
+
 .PRECIOUS: %.o user/%
 
