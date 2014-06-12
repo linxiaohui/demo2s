@@ -9,12 +9,13 @@
  * buffer.
  */
 static char *
-ksprintn(u_int uq, int base, int *lenp)
+printnum(u_int uq, int base, char *buf, int *lenp)
 {				/* A quad in binary, plus NULL. */
 	static char buf[sizeof(u_quad_t) * 8 + 1];
 	register char *p;
 
 	p = buf;
+	*buf = 0;
 	do {
 		*++p = "0123456789abcdef"[uq % base];
 	} while (uq /= base);
@@ -73,6 +74,12 @@ static char *error_string[MAXERROR+1] =
 	"out of memory",
 	"out of environments",
 	"env is not recving",
+	"no free space on disk",
+	"too many files are open",
+	"file or block not found",
+	"invalid path",
+	"file already exists",
+	"file is not a valid executable",
 };
 
 static u_int
@@ -110,6 +117,7 @@ vsnprintf(char *buf, int m, const char *fmt, va_list ap)
 	u_int uq;
 	int base, lflag, qflag, tmp, width;
 	char padc;
+	char numbuf[sizeof(u_quad_t) * 8 + 1];
 
 	obuf = buf;
 	ebuf = buf+m;
@@ -155,7 +163,7 @@ vsnprintf(char *buf, int m, const char *fmt, va_list ap)
 		case 'b':
 			uq = va_arg(ap, int);
 			p = va_arg(ap, char *);
-			for (q = ksprintn(uq, *p++, NULL); (ch = *q--) != '\0';)
+			for (q = printnum(uq, *p++, numbuf, NULL); (ch = *q--) != '\0';)
 				buf_putc(&buf, ebuf, ch);
 
 			if (!uq)
@@ -227,7 +235,7 @@ vsnprintf(char *buf, int m, const char *fmt, va_list ap)
 			uq = getint(&ap, lflag, qflag);
 			base = 16;
 		number:
-			p = ksprintn(uq, base, &tmp);
+			p = printnum(uq, base, numbuf, &tmp);
 			if (width && (width -= tmp) > 0)
 				while (width--)
 					buf_putc(&buf, ebuf, padc);
@@ -261,7 +269,6 @@ snprintf(char *buf, int n, const char *fmt, ...)
  * Variable panicstr contains argument to first call to panic; used as flag
  * to indicate that the kernel has already called panic.
  */
-static const char *panicstr;
 
 /*
  * Panic is called on unresolvable fatal errors.

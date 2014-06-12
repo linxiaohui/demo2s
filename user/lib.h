@@ -6,8 +6,8 @@
 #include <inc/syscall.h>
 
 // ipc.c
-void	ipc_send(u_int, u_int);
-u_int	ipc_recv(u_int*);
+void	ipc_send(u_int whom, u_int val, u_int srcva, u_int perm);
+u_int	ipc_recv(u_int *whom, u_int dstva, u_int *perm);
 
 // printf.c
 void	_panic(const char*, int, const char*, ...);
@@ -24,6 +24,7 @@ void	bcopy(const void*, void*, u_int);
 void	bzero(void*, u_int);
 char*	strcpy(char*, const char*);
 int	strlen(const char*);
+int	strcmp(const char*, const char*);
 
 // libos.c or entry.S
 extern struct Env *env;
@@ -40,16 +41,18 @@ void	set_pgfault_handler(void(*)(u_int va, u_int err));
 // syscall.c
 void	sys_cputs(char*);
 // int	sys_env_alloc(void);
-void	sys_env_destroy(void);
+int	sys_env_destroy(u_int);
 u_int	sys_getenvid(void);
-int	sys_ipc_can_send(u_int, u_int);
-void	sys_ipc_recv(void);
+int	sys_ipc_can_send(u_int, u_int, u_int, u_int);
+void	sys_ipc_recv(u_int);
 int	sys_set_env_status(u_int, u_int);
 int	sys_set_pgfault_handler(u_int, u_int, u_int);
 void	sys_yield(void);
 int	sys_mem_alloc(u_int, u_int, u_int);
 int	sys_mem_map(u_int, u_int, u_int, u_int, u_int);
 int	sys_mem_unmap(u_int, u_int);
+int	sys_set_trapframe(u_int, struct Trapframe*);
+void	sys_panic(char*);
 
 // This must be inlined.  
 // Exercise for reader: why?
@@ -66,3 +69,36 @@ sys_env_alloc(void)
 	return ret;
 }
 
+// fsipc.c
+int	fsipc_open(const char*, u_int, u_int*, u_int*);
+int	fsipc_map(u_int, u_int, u_int);
+int	fsipc_set_size(u_int, u_int);
+int	fsipc_close(u_int);
+int	fsipc_dirty(u_int, u_int);
+int	fsipc_remove(const char*);
+int	fsipc_sync(void);
+// file.c
+int	open(const char *path, int mode);
+int	close(int fd);
+int	read(int fd, void *buf, u_int nbytes);
+int	read_map(int fd, u_int offset, void **blk);
+int	write(int fd, const void *buf, u_int nbytes);
+int	seek(int fd, u_int offset);
+int	delete(const char *path);
+int	ftruncate(int fd, u_int size);
+int	sync(void);
+
+// spawn.c
+int	spawn(char*, char**);
+int	spawnl(char*, char*, ...);
+
+/* File open modes */
+#define	O_RDONLY	0x0000		/* open for reading only */
+#define	O_WRONLY	0x0001		/* open for writing only */
+#define	O_RDWR		0x0002		/* open for reading and writing */
+#define	O_ACCMODE	0x0003		/* mask for above modes */
+
+#define	O_CREAT		0x0100		/* create if nonexistent */
+#define	O_TRUNC		0x0200		/* truncate to zero length */
+#define	O_EXCL		0x0400		/* error if already exists */
+#define O_MKDIR		0x0800		/* create directory, not regular file */

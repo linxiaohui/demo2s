@@ -21,11 +21,16 @@ CLEAN_FILES += \
 	user/primes \
 
 USERLIB := \
+	user/fd.o \
+        user/file.o \
 	user/fork.o \
+        user/fsipc.o \
 	user/ipc.o \
 	user/libos.o \
+        user/pageref.o \
 	user/pgfault.o \
 	user/printf.o \
+        user/spawn.o \
 	user/string.o \
 	user/syscall.o \
  

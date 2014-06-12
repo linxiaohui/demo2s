@@ -49,3 +49,14 @@ bcopy(const void *src, void *dst, u_int n)
 		*d++ = *s++;
 }
 
+int
+strcmp(const char *p, const char *q)
+{
+	while (*p && *p == *q)
+		p++, q++;
+	if ((u_int)*p < (u_int)*q)
+		return -1;
+	if ((u_int)*p > (u_int)*q)
+		return 1;
+	return 0;
+}

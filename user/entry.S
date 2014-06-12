@@ -1,6 +1,15 @@
 #include <inc/mmu.h>
 
 .data
+	// define page-aligned fsipcbuf for fsipc.c
+	// ... and fdtab for file.c
+	.p2align PGSHIFT
+	.globl _fsipcbuf
+_fsipcbuf:
+	.space BY2PG
+	.globl _fdtab
+_fdtab:
+	.space BY2PG
 	.globl envs
 	.set envs, UENVS
 	.globl pages

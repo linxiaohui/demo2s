@@ -174,6 +174,7 @@ env_alloc(struct Env **new, u_int parent_id)
 	*new = e;
 
 /*	printf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);*/
+/*ESSENTIAL FOR LAB 4 GRADE*/
 	printf("[%08x] new env %08x\n",parent_id,e->env_id);
 	return 0;
 }
@@ -248,6 +249,7 @@ env_free(struct Env *e)
 	u_int pdeno, pteno, pa;
 
 	// Note the environment's demise.
+/*ESSENTIAL FOR LAB 4 GRADE*/	
 	printf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 
 	// Flush all pages

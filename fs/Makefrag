@@ -1,0 +1,47 @@
+CLEAN_FILES += \
+	fs/fs \
+	fs/fsformat \
+
+OBJDIRS += fs
+
+FSOFILES := \
+	fs/ide.o \
+	fs/fs.o \
+	fs/serv.o \
+	fs/test.o \
+ 
+FSIMGFILES := \
+	fs/newmotd \
+	fs/motd \
+
+# For embedding one program in another
+
+fs/fs: fs/fs.b.c
+	@echo cc $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
+
+fs/fs.b.c: fs/fs.b
+	@echo create $@
+	$(TOP)/fs/bintoc fs $< > $@~ && mv -f $@~ $@
+	
+fs/fs.b: user/entry.o $(FSOFILES) $(USERLIB)
+	@echo ld $@
+	@$(LD) -o $@ $(ULDFLAGS) $(LDFLAGS) -nostdlib -T fs/fs.lds $^ 
+
+fs/fs.asm: fs/fs
+	$(OBJDUMP) --adjust-vma=0x007ff000 -S $^ >$@
+
+fs/%.o:	fs/fs.h user/lib.h
+
+# How to build the file system image
+fs/fsformat: fs/fsformat.c
+	gcc -I. -o fs/fsformat fs/fsformat.c
+
+fs/fs.img: fs/fsformat $(FSIMGFILES)
+	dd if=/dev/zero of=fs/fs.img bs=4096 count=1024 2>/dev/null
+	./fs/fsformat fs/fs.img $(FSIMGFILES)
+
+all: fs/fs.img
+
+.PRECIOUS: fs/%
+

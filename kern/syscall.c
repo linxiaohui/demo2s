@@ -32,24 +32,32 @@ sys_yield(void)
 }
 
 // destroy the current environment
-static void
-sys_env_destroy(void)
+static int
+sys_env_destroy(u_int envid)
 {
-	printf("[%08x] exiting gracefully\n", curenv->env_id);
-	env_destroy(curenv);
+	int r;
+	struct Env *e;
+	if ((r=envid2env(envid, &e, 1)) < 0)
+		return r;
+	// printf("[%08x] destroying %08x\n", curenv->env_id, e->env_id);
+	env_destroy(e);
+	return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive,
 // mark yourself not runnable, and then give up the CPU.
 static void
-sys_ipc_recv(void)
+sys_ipc_recv(u_int dstva)
 {
 	//demo2s_code_start;
-	struct Env * 	e;
-	envid2env(curenv->env_id,&e,0);
-	e->env_ipc_recving = 1;
-	e->env_status	     = ENV_NOT_RUNNABLE;
-	sys_yield();
+	if(curenv->env_ipc_recving)
+		panic("already recving!");
+	if (dstva >= UTOP)
+		panic("invalid dstva");
+	curenv->env_ipc_recving = 1;
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sched_yield();
 	//demo2s_code_end;
 }
 
@@ -69,13 +77,31 @@ sys_ipc_recv(void)
 //
 // Hint: the only function you need to call is envid2env.
 static int
-sys_ipc_can_send(u_int envid, u_int value)
+sys_ipc_can_send(u_int envid, u_int value, u_int srcva, u_int perm)
 {
-//demo2s_code_start;
+	int r;
 	struct Env *e;
-	envid2env(envid,&e,0);
-	if(e->env_ipc_recving==0)
+	struct Page *p;
+	if ((r=envid2env(envid, &e, 0)) < 0)
+		return r;
+	if (!e->env_ipc_recving)
 	  return -E_IPC_NOT_RECV;
+	if (srcva != 0 && e->env_ipc_dstva != 0) {
+		if (srcva >= UTOP)
+			return -E_INVAL;
+		if (((~perm)&(PTE_U|PTE_P)) ||
+		    (perm&~(PTE_U|PTE_P|PTE_AVAIL|PTE_W)))
+			return -E_INVAL;
+		p = page_lookup(curenv->env_pgdir, srcva, 0);
+		if (p == 0)
+			return -E_INVAL;
+		r = page_insert(e->env_pgdir, p, e->env_ipc_dstva, perm);
+		if (r < 0)
+			return r;
+		e->env_ipc_perm = perm;
+	} else {
+		e->env_ipc_perm = 0;
+	}
 	e->env_ipc_recving=0;
 	e->env_ipc_from=curenv->env_id;
 	e->env_ipc_value=value;
@@ -262,6 +288,40 @@ sys_set_env_status(u_int envid, u_int status)
 //demo2s_code_end;
 }
 
+// Set envid's trap frame to tf.
+//
+// Returns 0 on success, < 0 on error.
+//
+// Return -E_INVAL if the environment cannot be manipulated.
+static int
+sys_set_trapframe(u_int envid, struct Trapframe *tf)
+{
+	int r;
+	struct Env *e;
+	struct Trapframe ltf;
+
+	page_fault_mode = PFM_KILL;
+	ltf = *TRUP(tf);
+	page_fault_mode = PFM_NONE;
+
+	ltf.tf_eflags |= FL_IF;
+	ltf.tf_cs |= 3;
+
+	if ((r=envid2env(envid, &e, 1)) < 0)
+		return r;
+	if (e == curenv)
+		*UTF = ltf;
+	else
+		e->env_tf = ltf;
+	return 0;
+}
+
+static void
+sys_panic(char *msg)
+{
+	// no page_fault_mode -- we are trying to panic!
+	panic("%s", TRUP(msg));
+}
 
 // Dispatches to the correct kernel function, passing the arguments.
 int

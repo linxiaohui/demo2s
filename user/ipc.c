@@ -8,17 +8,16 @@
 //
 // Hint: use sys_yield() to be CPU-friendly.
 void
-ipc_send(u_int whom, u_int val)
+ipc_send(u_int whom, u_int val, u_int srcva, u_int perm)
 {
 	//demo2s_code_start;
-  int s;
-  s=sys_ipc_can_send(whom,val);
-  while(s==-E_IPC_NOT_RECV){
+	int r;
+
+	while ((r=sys_ipc_can_send(whom, val, srcva, perm)) == -E_IPC_NOT_RECV)
     sys_yield();
-    s =	sys_ipc_can_send(whom,val);
-  }
-  if(s<0)
-    panic("error happened!\t%d\n",s);
+	if(r == 0)
+		return;
+	panic("error in ipc_send: %e", r);
 	//demo2s_code_end;
 }
 
@@ -27,13 +26,15 @@ ipc_send(u_int whom, u_int val)
 //
 // Hint: use env to discover the value and who sent it.
 u_int
-ipc_recv(u_int *whom)
+ipc_recv(u_int *whom, u_int dstva, u_int *perm)
 {
 	//demo2s_code_start;
-  sys_ipc_recv();
+	sys_ipc_recv(dstva);
+	if (whom)
   *whom=env->env_ipc_from;
+	if (perm)
+		*perm = env->env_ipc_perm;
   return env->env_ipc_value;
 	//demo2s_code_end;
-	return 0;
 }
 

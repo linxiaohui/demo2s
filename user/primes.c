@@ -18,7 +18,7 @@ primeproc(void)
 
 	// fetch a prime from our left neighbor
 top:
-	p = ipc_recv(&envid);
+	p = ipc_recv(&envid, 0, 0);
 	printf("%d ", p);
 
 	// fork a right neighbor to continue the chain
@@ -29,9 +29,9 @@ top:
 	
 	// filter out multiples of our prime
 	for (;;) {
-		i = ipc_recv(&envid);
+		i = ipc_recv(&envid, 0, 0);
 		if (i%p)
-			ipc_send(id, i);
+			ipc_send(id, i, 0, 0);
 	}
 }
 
@@ -48,6 +48,6 @@ umain(void)
 
 	// feed all the integers through
 	for (i=2;; i++)
-		ipc_send(id, i);
+		ipc_send(id, i, 0, 0);
 }
 

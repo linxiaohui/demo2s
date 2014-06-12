@@ -45,10 +45,10 @@ sys_yield(void)
 	syscall(SYS_yield, 0, 0, 0, 0, 0);
 }
 
-void
-sys_env_destroy(void)
+int
+sys_env_destroy(u_int envid)
 {
-	syscall(SYS_env_destroy, 0, 0, 0, 0, 0);
+	return syscall(SYS_env_destroy, envid, 0, 0, 0, 0);
 }
 
 u_int
@@ -58,17 +58,17 @@ sys_getenvid(void)
 }
 
 int
-sys_ipc_can_send(u_int a1, u_int a2)
+sys_ipc_can_send(u_int envid, u_int value, u_int srcva, u_int perm)
 {
 	//demo2s_code;
-	return syscall(SYS_ipc_can_send,a1,a2,0,0,0);
+	return syscall(SYS_ipc_can_send, envid, value, srcva, perm, 0);
 }
 
 void
-sys_ipc_recv(void)
+sys_ipc_recv(u_int dstva)
 {
 	//demo2s_code;
-  return syscall(SYS_ipc_recv,0,0,0,0,0);
+	syscall(SYS_ipc_recv, dstva, 0, 0, 0, 0);
 }
 
 int
@@ -115,4 +115,16 @@ sys_set_env_status(u_int envid, u_int status)
   // printf("user sys_set_env_status done\n");
   return r;
 }
+int
+sys_set_trapframe(u_int envid, struct Trapframe *tf)
+{
+	return syscall(SYS_set_trapframe, envid, (u_int)tf, 0, 0, 0);
+}
+
+void
+sys_panic(char *msg)
+{
+	syscall(SYS_panic, (u_int)msg, 0, 0, 0, 0);
+}
+
 

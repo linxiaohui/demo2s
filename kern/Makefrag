@@ -59,7 +59,8 @@ KERN_BINFILE := \
 	user/pingpong1 \
 	user/pingpong2 \
 	user/pingpongs \
-	user/primes
+	user/primes \
+	fs/fs \
 
 KERN_BINFILES := $(foreach file, $(KERN_BINFILE), \
 			$(shell test -f $(file).c && echo $(file)))

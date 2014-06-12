@@ -51,7 +51,8 @@ i386_init(void)
 
 	// Should always have an idle process as first one.
 	ENV_CREATE(user_idle);
-
+	// Start fs.
+	ENV_CREATE(fs_fs);
 	// Temporary test code specific to LAB 3
 #if defined(TEST_START)
 	{
@@ -85,7 +86,7 @@ i386_init(void)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(user_pingpong2);
 	ENV_CREATE(user_pingpong2);
-#else
+#elif define __LAB__4__
 	// Touch all you want.
 	//ENV_CREATE(user_hello);
 
@@ -111,6 +112,10 @@ i386_init(void)
 	//	ENV_CREATE(user_pingpong);
 
 	ENV_CREATE(user_primes);
+#else
+	// ENV_CREATE(user_writemotd);
+	// ENV_CREATE(user_testfsipc);
+	ENV_CREATE(user_icode);
 #endif
 
 
