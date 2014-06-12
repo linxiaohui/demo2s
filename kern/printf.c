@@ -203,6 +203,7 @@ kprintf(const char *fmt, va_list ap)
 			cons_putc('X');*/
 			// demo2s_code_begin;
 			uq = getint(&ap, lflag, qflag);
+			cons_putc('0');
 			base=8;
 			goto number;
 			// demo2s_code_end;

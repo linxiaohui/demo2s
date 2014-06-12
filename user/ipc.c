@@ -10,8 +10,16 @@
 void
 ipc_send(u_int whom, u_int val)
 {
-	// Your code here.
-	panic("ipc_send not implemented");
+	//demo2s_code_start;
+  int s;
+  s=sys_ipc_can_send(whom,val);
+  while(s==-E_IPC_NOT_RECV){
+    sys_yield();
+    s =	sys_ipc_can_send(whom,val);
+  }
+  if(s<0)
+    panic("error happened!\t%d\n",s);
+	//demo2s_code_end;
 }
 
 // Receive a value.  Return the value and store the caller's envid
@@ -21,8 +29,11 @@ ipc_send(u_int whom, u_int val)
 u_int
 ipc_recv(u_int *whom)
 {
-	// Your code here
-	panic("ipc_recv not implemented");
+	//demo2s_code_start;
+  sys_ipc_recv();
+  *whom=env->env_ipc_from;
+  return env->env_ipc_value;
+	//demo2s_code_end;
 	return 0;
 }
 

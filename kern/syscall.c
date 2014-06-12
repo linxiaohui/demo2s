@@ -21,7 +21,7 @@ sys_getenvid(void)
 static void
 sys_cputs(char *s)
 {
-	printf("%s", s);
+  printf("%s",TRUP(s));
 }
 
 // deschedule current environment
@@ -44,8 +44,13 @@ sys_env_destroy(void)
 static void
 sys_ipc_recv(void)
 {
-	// Your code here
-	panic("sys_ipc_recv not implemented");
+	//demo2s_code_start;
+	struct Env * 	e;
+	envid2env(curenv->env_id,&e,0);
+	e->env_ipc_recving = 1;
+	e->env_status	     = ENV_NOT_RUNNABLE;
+	sys_yield();
+	//demo2s_code_end;
 }
 
 // Try to send 'value' to the target env 'envid'.
@@ -66,8 +71,17 @@ sys_ipc_recv(void)
 static int
 sys_ipc_can_send(u_int envid, u_int value)
 {
-	// Your code here
-	panic("sys_ipc_can_send not implemented");
+//demo2s_code_start;
+	struct Env *e;
+	envid2env(envid,&e,0);
+	if(e->env_ipc_recving==0)
+	  return -E_IPC_NOT_RECV;
+	e->env_ipc_recving=0;
+	e->env_ipc_from=curenv->env_id;
+	e->env_ipc_value=value;
+	e->env_status=ENV_RUNNABLE;
+	return 0;
+//demo2s_code_end;
 }
 
 // Set envid's pagefault handler entry point and exception stack.
@@ -77,8 +91,16 @@ sys_ipc_can_send(u_int envid, u_int value)
 static int
 sys_set_pgfault_handler(u_int envid, u_int func, u_int xstacktop)
 {
-	// Your code here.
-	panic("sys_set_pgfault_handler not implemented");
+//demo2s_code_start;
+  struct Env * 	e;
+  int 		i;
+  i = envid2env(envid,&e,1);
+  if(i<0)
+    return i;
+  e->env_pgfault_handler=func;
+  e->env_xstacktop=xstacktop;
+  return 0;
+//demo2s_code_end;
 }
 
 //
@@ -99,8 +121,32 @@ sys_set_pgfault_handler(u_int envid, u_int func, u_int xstacktop)
 static int
 sys_mem_alloc(u_int envid, u_int va, u_int perm)
 {
+//demo2s_code_start;
 	// Your code here.
-	panic("sys_mem_alloc not implemented");
+	struct Page * 	p;
+	struct Env * 	e;
+	int 		i;
+	if(va>=UTOP) {
+	  printf("!!!!%x\n",va);
+	  return -E_INVAL;
+	}
+	i = page_alloc(&p);
+	if(i<0) {
+	   printf("@@@@%x\n",i);
+	  return i;
+	}
+	i = envid2env(envid,&e,0);
+	if(i<0) {
+	   printf("####%x\n",va);
+	  return i;
+	}
+	i = page_insert(e->env_pgdir,p,va,perm);
+	if(i<0) {
+	  printf("$$$$%x\n",va);
+	  return i;
+	}
+	return 0;
+//demo2s_code_end;
 }
 
 // Map the page of memory at 'srcva' in srcid's address space
@@ -115,8 +161,26 @@ sys_mem_alloc(u_int envid, u_int va, u_int perm)
 static int
 sys_mem_map(u_int srcid, u_int srcva, u_int dstid, u_int dstva, u_int perm)
 {
-	// Your code here.
-	panic("sys_mem_map not implemented");
+//demo2s_code_start;
+	int 		 s;
+	u_long 		 pa;
+	struct Env 	*src;
+	struct Env 	*dst;
+	struct Page 	*p;
+	if(srcva>=UTOP||dstva>=UTOP)
+		return -E_INVAL;
+	s = envid2env(srcid,&src,0);
+	if(s<0)
+		return s;
+	s = envid2env(dstid,&dst,0);
+	if(s<0)
+		return s;
+	p = page_lookup(src->env_pgdir,srcva,0);
+	if(p==0)
+		return -E_INVAL;
+	s = page_insert(dst->env_pgdir,p,dstva,perm);
+	return s;
+//demo2s_code_end;
 }
 
 // Unmap the page of memory at 'va' in the address space of 'envid'
@@ -128,8 +192,17 @@ sys_mem_map(u_int srcid, u_int srcva, u_int dstid, u_int dstva, u_int perm)
 static int
 sys_mem_unmap(u_int envid, u_int va)
 {
-	// Your code here.
-	panic("sys_mem_unmap not implemented");
+//demo2s_code_start;
+	struct Env * 	e;
+	int 		s;
+	if(va>=UTOP)
+		return -E_INVAL;
+	s = envid2env(envid,&e,0);
+	if(s<0)
+		return s;
+	page_remove(e->env_pgdir,va);
+	return 0;
+//demo2s_code_end;
 }
 
 // Allocate a new environment.
@@ -143,8 +216,29 @@ sys_mem_unmap(u_int envid, u_int va)
 static int
 sys_env_alloc(void)
 {
-	// Your code here.
-	panic("sys_env_alloc not implemented");
+//demo2s_code_start;
+	struct Env * 	e;
+	int 		s;
+	s = env_alloc(&e,curenv->env_id);
+	if(s<0)
+		return s;
+	e->env_status 	 = ENV_NOT_RUNNABLE;
+	e->env_tf.tf_eax = 0;
+	e->env_tf.tf_ebx = curenv->env_tf.tf_ebx;
+	e->env_tf.tf_ecx = curenv->env_tf.tf_ecx;
+	e->env_tf.tf_edx = curenv->env_tf.tf_edx;
+	e->env_tf.tf_edi = curenv->env_tf.tf_edi;
+	e->env_tf.tf_esi = curenv->env_tf.tf_esi;
+	e->env_tf.tf_ebp = curenv->env_tf.tf_ebp;
+	e->env_tf.tf_es = curenv->env_tf.tf_es;
+	e->env_tf.tf_ds = curenv->env_tf.tf_ds;
+	e->env_tf.tf_eip = curenv->env_tf.tf_eip;
+	e->env_tf.tf_cs  = curenv->env_tf.tf_cs;
+	e->env_tf.tf_eflags = curenv->env_tf.tf_eflags;
+	e->env_tf.tf_esp = curenv->env_tf.tf_esp;
+	e->env_tf.tf_cs  = curenv->env_tf.tf_cs;
+	return e->env_id;
+//demo2s_code_end;
 }
 
 // Set envid's env_status to status. 
@@ -155,8 +249,17 @@ sys_env_alloc(void)
 static int
 sys_set_env_status(u_int envid, u_int status)
 {
-	// Your code here.
-	panic("sys_env_set_status not implemented");
+//demo2s_code_start;
+	struct Env * 	e;
+	int 		s;
+	s = envid2env(envid,&e,0);
+	if(s<0)
+		return s;
+	if((status!=ENV_FREE)&&(status!=ENV_RUNNABLE)&&(status!=ENV_NOT_RUNNABLE))
+		return -E_INVAL;
+	e->env_status = status;
+	return 0;
+//demo2s_code_end;
 }
 
 
@@ -164,9 +267,42 @@ sys_set_env_status(u_int envid, u_int status)
 int
 syscall(u_int sn, u_int a1, u_int a2, u_int a3, u_int a4, u_int a5)
 {
+//demo2s_code_start;
 	// printf("syscall %d %d %d %d from env %d\n", sn, a1, a2, a3, curenv->env_id);
-
-	// Your code here
-	panic("syscall not implemented");
+	page_fault_mode = PFM_KILL;
+	
+	switch (sn) {
+	case SYS_getenvid:
+		return sys_getenvid();
+	case SYS_cputs:
+		sys_cputs(a1);
+		return 0;
+	case SYS_yield:
+		sys_yield();
+		return 0;
+	case SYS_env_destroy:
+		sys_env_destroy();
+		return 0;
+	case SYS_env_alloc:
+		return sys_env_alloc();
+	case SYS_ipc_can_send:
+		return sys_ipc_can_send(a1,a2);
+	case SYS_ipc_recv:
+		sys_ipc_recv();
+		return 0;
+	case SYS_set_pgfault_handler:
+		return sys_set_pgfault_handler(a1,a2,a3);
+	case SYS_set_env_status:
+		return sys_set_env_status(a1,a2);
+	case SYS_mem_alloc:
+		return sys_mem_alloc(a1,a2,a3);
+	case SYS_mem_map:
+		return sys_mem_map(a1,a2,a3,a4,a5);
+	case SYS_mem_unmap:
+		return sys_mem_unmap(a1,a2);
+	default:
+		return -E_INVAL;
+	}
+//demo2s_code_end;
 }
 

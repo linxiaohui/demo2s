@@ -26,7 +26,8 @@ void env_pop_tf(struct Trapframe *tf);
 // for the grading script
 #define ENV_CREATE2(x, y) \
 { \
-	extern u_char x[], y[]; \
+	extern u_char x[]/*, y[]*/; \
+extern u_int y;\
 	env_create(x, (int)y); \
 }
 

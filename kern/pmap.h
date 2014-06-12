@@ -22,6 +22,8 @@ int  page_alloc(struct Page **);
 void page_free(struct Page *);
 int  page_insert(Pde *, struct Page *, u_long, u_int);
 void page_remove(Pde *, u_long va);
+struct Page *page_lookup(Pde*, u_long, Pte**);
+void page_decref(struct Page*);
 void tlb_invalidate(Pde *, u_long va);
 
 static inline u_long
@@ -40,7 +42,7 @@ static inline struct Page *
 pa2page(u_long pa)
 {
 	if (PPN(pa) >= npage)
-		panic("pa2page called with invalid pa");
+		panic("pa2page called with invalid pa:%08x",pa);
 	return &pages[PPN(pa)];
 }
 

@@ -244,7 +244,7 @@ i386_vm_init(void)
 	// demo2s_code_begin;
 	n=npage*sizeof(struct Page);
 	pages=(struct Page*)alloc(n,BY2PG,1);
-	boot_map_segment(pgdir,UPAGES,n,PADDR(pages),PTE_U);
+	boot_map_segment(pgdir,UPAGES,n,PADDR(pages),PTE_W|PTE_U);
     //boot_map_segment(pgdir,pages,n,PADDR(pages),PTE_W|PTE_U);
 	// demo2s_code_end;
 	//////////////////////////////////////////////////////////////////////
@@ -256,7 +256,7 @@ i386_vm_init(void)
 	// demo2s_code_begin;
 	n=NENV*sizeof(struct Env);
 	envs=(struct Env*)alloc(n,BY2PG,1);
-	boot_map_segment(pgdir,UENVS,n,PADDR(envs),PTE_U);
+	boot_map_segment(pgdir,UENVS,n,PADDR(envs),PTE_W|PTE_U);
     //boot_map_segment(pgdir,envs,n,PADDR(envs),PTE_W|PTE_U);
 	// demo2s_code_end;
 	check_boot_pgdir();
@@ -446,7 +446,7 @@ page_init(void)
 	//     Which pages are used for page tables and other data structures?    
 	//
 	// Change the code to reflect this.
-	n=ROUND(freemem,BY2PG)/BY2PG;
+	n=ROUND(PADDR(freemem),BY2PG)/BY2PG;//??
 	for (; i < n; i++) {
 		pages[i].pp_ref = 1;
 	}
@@ -548,6 +548,7 @@ pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
 			*ppte=0;
 			return -E_NO_MEM;
 		}
+		bzero(page2kva(new_page),BY2PG);//important!!
 		new_page->pp_ref++;
 		pgdir[PDX(va)]=page2pa(new_page)|PTE_W|PTE_U|PTE_P;
 	}		
@@ -629,6 +630,23 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 struct Page*
 page_lookup(Pde *pgdir, u_long va, Pte **ppte)
 {
+	//demo2s_code_start;
+
+            u_long 		pa;
+	    Pte * 		pte;
+	    int 		r;
+	    struct Page * 	p;
+	    pgdir_walk(pgdir,va,0,&pte);
+	    if(pte==0)	{	// no page mapped at va
+	      if(ppte!=0)
+		*ppte = 0;
+	      return 0;
+	    }
+	    if(ppte!=0)
+	      *ppte = pte;
+	    p = pa2page(*pte);
+	    return p;
+	//demo2_code_end;
 }
 //
 // Unmaps the physical page at virtual address 'va'.
@@ -654,6 +672,7 @@ page_remove(Pde *pgdir, u_long va)
 	// demo2s_code_begin;
 	Pte * pte;
 	struct Page * page;
+#ifdef __LAB__3__
 	if(va2pa(pgdir,va)==~0) {
 		//printf("VIRTUAL address %p seems has not been mapped\n",va);
 		return;
@@ -674,6 +693,21 @@ page_remove(Pde *pgdir, u_long va)
 	if(page->pp_ref==0)
 		page_free(page);
 	bzero(pte,sizeof(*pte));
+#else
+
+	pgdir_walk(pgdir,va,0,&pte);
+	
+	if(pte==0||((*pte&PTE_P)==0)) {		//there is no page mapped at va
+	  return;
+	}
+
+	page=pa2page(*pte);
+	
+	page_decref(page);
+
+	*pte=0;
+
+#endif
 	tlb_invalidate(pgdir,va);
 	// demo2s_code_end;
 }

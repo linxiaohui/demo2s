@@ -52,6 +52,9 @@ envid2env(u_int envid, struct Env **penv, int checkperm)
 
 	if (checkperm) {
 		// Your code here in Lab 4
+		//demo2s_code_start;
+	  if((e->env_parent_id!=curenv->env_id)&&(e->env_id!=curenv->env_id))
+  		//demo2s_code_end;
 		return -E_BAD_ENV;
 	}
 	*penv = e;
@@ -170,7 +173,8 @@ env_alloc(struct Env **new, u_int parent_id)
 	LIST_REMOVE(e, env_link);
 	*new = e;
 
-	printf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+/*	printf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);*/
+	printf("[%08x] new env %08x\n",parent_id,e->env_id);
 	return 0;
 }
 

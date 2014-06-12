@@ -18,17 +18,18 @@ runtest() {
 	rm -f kern/init.o
 	if $verbose
 	then
-		perl -e "print 'gmake $2... '"
+		perl -e "print 'make $2... '"
 	fi
-	if ! gmake $2 kern/bochs.img >$out
+make clean > $out
+	if ! make $2 kern/bochs.img >$out 2> $err
 	then
-		echo gmake failed 
+		echo make failed
 		exit 1
 	fi
 	(
 		ulimit -t 10
 		(echo c; echo quit) |
-			bochs-nogui 'parport1: enabled=1, file="bochs.out"'
+			bochs -q 'parport1: enabled=1, file="bochs.out"'
 	) >$out 2>$err
 	if [ ! -s bochs.out ]
 	then
@@ -40,6 +41,7 @@ runtest() {
 
 		for i
 		do
+echo egrep "^$i\$" bochs.out >/dev/null
 			if ! egrep "^$i\$" bochs.out >/dev/null
 			then
 				echo "missing '$i'"
@@ -105,7 +107,7 @@ runtest1 evilhello \
 	'.00001001. free env 00001001'
 
 runtest1 fault \
-	'.00001001. user fault va 00000000 ip 0080008b' \
+	'.00001001. user fault va 00000000 ip 008000..' \
 	'.00001001. free env 00001001'
 
 runtest1 faultdie \

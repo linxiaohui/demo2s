@@ -138,6 +138,7 @@ IDTFNC(align,T_ALIGN)		;
 IDTFNC(mchk,T_MCHK)		;
 	;;
 
+IDTFNC_NOEC(systemcall,T_SYSCALL)	; 
 IDTFNC_NOEC(clockrpt,IRQ_OFFSET)	;
 	
 _alltraps:

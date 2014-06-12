@@ -48,32 +48,36 @@ sched_yield(void)
 
 #endif
 
-  int i;
+	static int 	i;
 
   if(curenv==NULL) {
-    i=0;
+		i  				 = 1;
     while(i<NENV) {
-      if((envs+i)->env_status==ENV_RUNNABLE)
+			if((envs+i)->env_status == ENV_RUNNABLE) {
         env_run(envs+i);
+			}	//if
       else
        i++;
     }//while
   }//if
   else {
     i=0;
-    while(i<NENV-(curenv-envs)) {
+		while(i<envs+NENV-curenv) {
       i++;
-      if((curenv+i)->env_status==ENV_RUNNABLE) 
+			if((curenv+i)->env_status == ENV_RUNNABLE) {
         env_run(curenv+i);
+			}
     }//while
-    i=0;
-    while(i<NENV) {
-      if((envs+i)->env_status==ENV_RUNNABLE)
+		i 				 = 1;
+		while(i<=curenv-envs) {
+			if((envs+i)->env_status == ENV_RUNNABLE){
         env_run(envs+i);
+			}
       else
         i++;
     }//while
   }//else
     //demo2s_code_end;
+	env_run(envs);
 }
 

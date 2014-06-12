@@ -11,7 +11,7 @@ void
 libmain(int argc, char **argv)
 {
 	// set env to point at our env structure in envs[].
-	env = 0;	// Your code here.
+	env = envs+ENVX(sys_getenvid());	//demo2s_code;
 
 	// call user main routine
 	umain(argc, argv);

@@ -87,8 +87,30 @@ i386_init(void)
 	ENV_CREATE(user_pingpong2);
 #else
 	// Touch all you want.
-	ENV_CREATE(user_hello);
+	//ENV_CREATE(user_hello);
+
+	//ENV_CREATE(user_buggyhello);
+	//ENV_CREATE(user_evilhello);
 	
+	//ENV_CREATE(user_pingpong2);
+	//ENV_CREATE(user_pingpong2);
+
+
+	//	ENV_CREATE(user_fault);
+	
+	//	ENV_CREATE(user_faultbadhandler);
+	//	ENV_CREATE(user_faultbadstack);
+	//	ENV_CREATE(user_faultevilhandler);
+	//	ENV_CREATE(user_faultevilstack);
+		
+	
+	
+	//	ENV_CREATE(user_faultdie);
+	//	ENV_CREATE(user_faultalloc);
+	//	ENV_CREATE(user_pingpong1);
+	//	ENV_CREATE(user_pingpong);
+
+	ENV_CREATE(user_primes);
 #endif
 
 

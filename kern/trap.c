@@ -33,6 +33,7 @@ extern void _fperr(void);
 extern void _align(void);
 extern void _mchk(void);
 
+extern void _systemcall(void);
 extern void _clockrpt(void);
 
 //exercise 3
@@ -94,6 +95,7 @@ idt_init(void)
     SETGATE(idt[T_ALIGN],0,0x8,_align,0);
     SETGATE(idt[T_MCHK],0,0x8,_mchk,0);
 
+	SETGATE(idt[T_SYSCALL],0,0x8,_systemcall,3);
     // interrupt
     SETGATE(idt[IRQ_OFFSET],0,0x8,_clockrpt,0);
     
@@ -136,13 +138,17 @@ void
 trap(struct Trapframe *tf)
 {
 	// print_trapframe(tf);
-	if (tf->tf_trapno == T_PGFLT) {
+	switch(tf->tf_trapno){
+	case T_PGFLT:		//page fault
 		page_fault_handler(tf);
 		return;
-	}
 
-    //demo2s_code_start;
-  if (tf->tf_trapno == IRQ_OFFSET+0) {
+	case T_SYSCALL:		//system call
+		if(curenv)
+			bcopy(UTF,&curenv->env_tf,sizeof(struct Trapframe));
+
+		tf->tf_eax = syscall(tf->tf_eax,tf->tf_edx,tf->tf_ecx,tf->tf_ebx,tf->tf_edi,tf->tf_esi);
+		return;
 		// irq 0 -- clock interrupt
 		//panic("clock interrupt");
     // print_trapframe(tf);
@@ -150,24 +156,37 @@ trap(struct Trapframe *tf)
     //exercise 3
     //clock();
     
+	case IRQ_OFFSET+0:   	// irq 0 -- clock interrupt
     sched_yield();
     return;//sched_yield never returned
-  }
-  //demo2s_code_end;
-  if (IRQ_OFFSET <= tf->tf_trapno 
-			&& tf->tf_trapno < IRQ_OFFSET+MAX_IRQS) {
+		
+	case IRQ_OFFSET+1:
+	case IRQ_OFFSET+2:
+	case IRQ_OFFSET+3:
+	case IRQ_OFFSET+4:
+	case IRQ_OFFSET+5:
+	case IRQ_OFFSET+6:
+	case IRQ_OFFSET+7:
+	case IRQ_OFFSET+8:
+	case IRQ_OFFSET+9:
+	case IRQ_OFFSET+10:
+	case IRQ_OFFSET+11:
+	case IRQ_OFFSET+12:
+	case IRQ_OFFSET+13:
+	case IRQ_OFFSET+14:
+	case IRQ_OFFSET+15:  	// irq MAX_IRQS-1
 		// just ingore spurious interrupts
-		printf("spurious interrupt on irq %d\n",
-			tf->tf_trapno - IRQ_OFFSET);
+		printf("spurious interrupt on irq %d\n",tf->tf_trapno - IRQ_OFFSET);
 		print_trapframe(tf);
 		return;
-	}
 
+	default:
 	// the user process or the kernel has a bug.
 	print_trapframe(tf);
 	panic("unhandled trap");
-}
+	}//switch
 
+}
 
 void
 page_fault_handler(struct Trapframe *tf)
@@ -176,9 +195,44 @@ page_fault_handler(struct Trapframe *tf)
 	u_int *tos, d;
 
 	va = rcr2();
-
-	// Fill this in
+	
 	print_trapframe(tf);
-	panic("page fault");
+	
+	//page fault at kernel mode
+	if(!(tf->tf_cs&0x1)) {
+		printf("page fault at kernel\n");
+		if(page_fault_mode==PFM_NONE) {
+			panic("kernel page fault!\n");
 }
+		else {
+			printf("[%08x] PFM_KILL va %08x ip %08x\n",curenv->env_id,va,tf->tf_eip);
+			env_destroy(curenv);
+			page_fault_mode	= PFM_NONE;
+		}
 
+		return;
+	}			//end if
+	if(curenv->env_pgfault_handler==0) {
+	    printf("[%08x] user fault va %08x ip %08x\n",curenv->env_id,va,tf->tf_eip);
+	    env_destroy(curenv);
+	    return;
+	}
+	tos = TRUP(curenv->env_xstacktop-4);
+	if((tf->tf_esp>=curenv->env_xstacktop-BY2PG)&&(tf->tf_esp<curenv->env_xstacktop)) {
+		tos = tf->tf_esp-4;
+	}
+	tos[0] = 0;
+	tos[-1]=0;
+	tos[-2]=0;
+	tos[-3]=0;
+	tos[-4]=0;
+	tos[-5]=tf->tf_eip;
+	tos[-6]=tf->tf_eflags;
+	tos[-7]=tf->tf_esp;
+	tos[-8]=tf->tf_err;
+	tos[-9]=va;
+	tos -= 9;
+	tf->tf_eip = curenv->env_pgfault_handler;
+	tf->tf_esp = tos;
+	env_run(curenv);
+}

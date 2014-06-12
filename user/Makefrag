@@ -1,3 +1,4 @@
+OBJDIRS += user
 CLEAN_FILES += \
 	user/buggyhello \
 	user/evilhello \
@@ -51,7 +52,7 @@ user/%.o: user/%.S
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
 user/%.asm: user/%
-	$(OBJDUMP) --adjust-vma=0x7ff000 -S $^ >$@
+	$(OBJDUMP) --adjust-vma=0x7ff000 -D -S $^ >$@
 
 user/%.o: lib.h
 

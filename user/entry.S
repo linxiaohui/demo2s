@@ -51,20 +51,35 @@ __pgfault_handler:
 .globl __asm_pgfault_handler
 __asm_pgfault_handler:
 	// save the caller-save registers
-	//	(your code here)
+	//demo2_code_
+	movl %eax,28(%esp)
+	movl %ecx,24(%esp)
+	movl %edx,20(%esp)
 
 	// call the C page fault handler
 	movl __pgfault_handler, %eax
 	call *%eax
 
 	// push trap-time eip, eflags onto trap-time stack
-	//	(your code here)
+	//demo2s_code_
+	movl 8(%esp),%eax
+	movl 16(%esp),%edx
+	movl %edx,-4(%eax)
+	movl 12(%esp),%edx
+	movl %edx,-8(%eax)
 
 	// restore the caller-save registers
-	//	(your code here)
+	//demo2s_code_
+	movl 28(%esp),%eax
+	movl 24(%esp),%ecx
+	movl 20(%esp),%edx
 
 	// switch to the trap-time stack 
-	//	(your code here)
+	//demo2s_code_
+	movl 8(%esp),%esp
+	subl $8,%esp
 
 	// restore eflags and eip from the stack
-	//	(your code here)
+	//demo2s_code_
+	popfl
+	ret
