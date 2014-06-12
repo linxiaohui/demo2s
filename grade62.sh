@@ -14,10 +14,13 @@ fi
 
 
 pts=5
-timeout=30
+timeout=60
 runtest() {
 	perl -e "print '$1: '"
 	rm -f kern/init.o kern/kernel kern/bochs.img fs/fs.img
+	rm -f user/console.o user/init
+	gmake user/console-closed.o >$out 2>$err
+	cp user/console-closed.o user/console.o
 	if $verbose
 	then
 		perl -e "print 'gmake $2... '"
@@ -149,6 +152,8 @@ runtest1 -tag 'pipe race' testpiperace \
 
 # 10 points - run-testpiperace2
 pts=10
+timeout=180
+echo 'The pipe race 2 test has 3 minutes to complete.  Be patient.'
 runtest1 -tag 'pipe race 2' testpiperace2 \
 	! 'RACE: pipe appears closed' \
 	! 'child detected race' \
@@ -156,8 +161,8 @@ runtest1 -tag 'pipe race 2' testpiperace2 \
 
 # 10 points - run-primespipe
 pts=10
-timeout=120
-echo 'The primes test has up to 2 minutes to complete.  Be patient.'
+timeout=180
+echo 'The primes test has 3 minutes to complete.  Be patient.'
 runtest1 -tag 'primes' primespipe \
 	! 1 2 3 ! 4 5 ! 6 7 ! 8 ! 9 \
 	! 10 11 ! 12 13 ! 14 ! 15 ! 16 17 ! 18 19 \
@@ -167,7 +172,8 @@ runtest1 -tag 'primes' primespipe \
 
 # 20 points - run-testshell
 pts=20
-timeout=60
+timeout=240
+echo 'The shell test has 4 minutes to complete.  Be patient.'
 runtest1 -tag 'shell' testshell \
 	'shell ran correctly' \
 
