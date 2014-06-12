@@ -428,8 +428,10 @@ struct Pseudodesc {
 	(pa) + KERNBASE;					\
 })
 
+#ifndef __USE_BSD
 void bcopy(const void *, void *, size_t);
 void bzero(void *, size_t);
+#endif
 
 extern char bootstacktop[], bootstack[];
 

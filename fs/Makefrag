@@ -2,6 +2,8 @@ CLEAN_FILES += \
 	fs/fs \
 	fs/fsformat \
 	user/init \
+	fs/fs.b
+
 
 OBJDIRS += fs
 
@@ -37,7 +39,7 @@ fs/%.o:	fs/fs.h user/lib.h
 
 # How to build the file system image
 fs/fsformat: fs/fsformat.c
-	gcc -I. -o fs/fsformat fs/fsformat.c
+	gcc-3.3 -m32 -I. -o fs/fsformat fs/fsformat.c
 
 fs/fs.img: fs/fsformat $(FSIMGFILES)
 	@echo creating fs/fs.img
