@@ -150,7 +150,7 @@ boot_pgdir_walk(Pde *pgdir, u_long va, int create)
 			return 0;
 		/*allocate a new page table */
 		pte=(Pte*)alloc(BY2PG,BY2PG,1);
-		pgdir[PDX(va)]=PADDR(pte)|PTE_W|PTE_P;
+		pgdir[PDX(va)]=PADDR(pte)|PTE_W|PTE_U|PTE_P;
 	}
 	return (Pte*)KADDR(PTE_ADDR(pgdir[PDX(va)]))+PTX(va);
 // demo2s_code_end;
@@ -244,7 +244,8 @@ i386_vm_init(void)
 	// demo2s_code_begin;
 	n=npage*sizeof(struct Page);
 	pages=(struct Page*)alloc(n,BY2PG,1);
-	boot_map_segment(pgdir,UPAGES,n,PADDR(pages),PTE_W);
+	boot_map_segment(pgdir,UPAGES,n,PADDR(pages),PTE_U);
+    //boot_map_segment(pgdir,pages,n,PADDR(pages),PTE_W|PTE_U);
 	// demo2s_code_end;
 	//////////////////////////////////////////////////////////////////////
 	// Make '__envs' point to an array of size 'NENV' of 'struct Env'.
@@ -255,7 +256,8 @@ i386_vm_init(void)
 	// demo2s_code_begin;
 	n=NENV*sizeof(struct Env);
 	envs=(struct Env*)alloc(n,BY2PG,1);
-	boot_map_segment(pgdir,UENVS,n,PADDR(envs),PTE_W);
+	boot_map_segment(pgdir,UENVS,n,PADDR(envs),PTE_U);
+    //boot_map_segment(pgdir,envs,n,PADDR(envs),PTE_W|PTE_U);
 	// demo2s_code_end;
 	check_boot_pgdir();
 
@@ -538,7 +540,7 @@ pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
 			return -E_NO_MEM;
 		}
 		new_page->pp_ref++;
-		pgdir[PDX(va)]=page2pa(new_page)|PTE_W|PTE_P;
+		pgdir[PDX(va)]=page2pa(new_page)|PTE_W|PTE_U|PTE_P;
 	}		
 	*ppte=(Pte*)KADDR(PTE_ADDR(pgdir[PDX(va)]))+PTX(va);
 	//*ppte=(Pte*)PTE_ADDR(pgdir[PDX(va)])+PTX(va);
@@ -578,7 +580,7 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 	if(status<0)
 		return -E_NO_MEM;
 	 		
-	*pte=page2pa(pp)|perm|PTE_W|PTE_P;
+	*pte=page2pa(pp)|perm|PTE_P;
 
 	pp->pp_ref++;
 	return 0;

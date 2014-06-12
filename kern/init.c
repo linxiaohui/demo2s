@@ -63,6 +63,11 @@ i386_init(void)
 		extern u_char alice_start, alice_end, bob_start, bob_end;
 		env_create(&alice_start, &alice_end - &alice_start);
 		env_create(&bob_start, &bob_end - &bob_start);
+
+	//demo2s_code_start;
+	extern u_char spin_start,spin_end;
+	env_create(&spin_start,&spin_end-&spin_start);
+	//demo2s_code_end;
 	}
 #else
 	{

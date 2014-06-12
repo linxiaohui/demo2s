@@ -55,6 +55,16 @@ envid2env(u_int envid, int *error)
 void
 env_init(void)
 {
+    //demo2s_code_start;
+  int i;
+  LIST_INIT(&env_free_list);
+  i=NENV-1;
+  while(i>=0) {
+    envs[i].env_status=ENV_FREE;//Is this necessary?
+    LIST_INSERT_HEAD(&env_free_list,&envs[i],env_link);
+    i--;
+  }
+    //demo2s_code_end;  
 }
 
 //
@@ -78,15 +88,21 @@ env_setup_vm(struct Env *e)
 	// Allocate a page for the page directory
 	if ((r = page_alloc(&p)) < 0)
 		return r;
-
+    //demo2s_code_start;
+    e->env_cr3=page2pa(p);
+    e->env_pgdir=page2kva(p);
 	// Hint:
 	//    - The VA space of all envs is identical above UTOP
 	//      (except at VPT and UVPT) 
 	//    - Use boot_pgdir
 	//    - Do not make any calls to page_alloc 
 	//    - Note: pp_refcnt is not maintained for physical pages mapped above UTOP.
+    for(i=0;i<PDE2PD;i++)
+      *(e->env_pgdir+i)=*(boot_pgdir+i);
 
 
+    //demo2s_code_end;
+	
 	// ...except at VPT and UVPT.  These map the env's own page table
 	e->env_pgdir[PDX(VPT)]   = e->env_cr3 | PTE_P | PTE_W;
 	e->env_pgdir[PDX(UVPT)]  = e->env_cr3 | PTE_P | PTE_U;
@@ -126,9 +142,13 @@ env_alloc(struct Env **new, u_int parent_id)
 	e->env_tf.tf_cs = GD_UT | 3;
 	// You also need to set tf_eip to the correct value.
 	// Hint: see load_icode
-
-	e->env_tf.tf_eflags = 0;
-
+	//demo2s_code_start;
+	e->env_tf.tf_eip=UTEXT+0x20;
+	
+	e->env_tf.tf_eflags |= FL_IF;//interrupt 
+	//e->env_tf.tf_eflags = 0;
+	//demo2s_code_end;
+	
 	e->env_ipc_blocked = 0;
 	e->env_ipc_value = 0;
 	e->env_ipc_from = 0;
@@ -165,6 +185,22 @@ load_icode(struct Env *e, u_char *binary, u_int size)
 	//  for the different mappings you create.
 	//  Remember that the binary image is an a.out format image,
 	//  which contains both text and data.
+	//demo2s_code_start;
+  struct Page * p;
+  int i,n;
+  n=(size+BY2PG-1)/BY2PG;
+  
+  if(page_alloc(&p)!=0)
+    return;
+  page_insert(e->env_pgdir,p,USTACKTOP-BY2PG,PTE_W|PTE_U);//?? permission
+
+  for(i=0;i<n;i++) {
+    if(page_alloc(&p)!=0)
+      return;
+    page_insert(e->env_pgdir,p,UTEXT+i*BY2PG,PTE_W|PTE_U); // ?? permission?
+    bcopy(binary+i*BY2PG,page2kva(p),BY2PG);
+  }
+	//demo2s_code_end;
 }
 
 //
@@ -173,6 +209,18 @@ load_icode(struct Env *e, u_char *binary, u_int size)
 void
 env_create(u_char *binary, int size)
 {
+    //demo2s_code_start;
+  struct Env * e;
+  int status;
+  if((status=env_alloc(&e,0))<0) {
+    panic("error %e\n",status);
+    return;
+  }
+
+  printf("alloc env success\t%d\n",e-envs);
+
+  load_icode(e,binary,size);
+	//demo2s_code_end;
 }
 
 //
@@ -211,7 +259,7 @@ env_destroy(struct Env *e)
 void
 env_pop_tf(struct Trapframe *tf)
 {
-#if 0
+#if 1
 	printf(" --> %d 0x%x\n", ENVX(curenv->env_id), tf->tf_eip);
 #endif
 
@@ -238,10 +286,19 @@ env_run(struct Env *e)
 	// step 2: set curenv
 	// step 3: use lcr3
 	// step 4: use env_pop_tf()
+	//demo2s_code_start;
+  if(curenv)
+   bcopy(UTF,&curenv->env_tf,sizeof(struct Trapframe));
 
-	// Hint: Skip step 1 until exercise 4.  You don't
-	// need it for exercise 1, and in exercise 4 you'll better
-	// understand what you need to do.
+  curenv=e;
+  lcr3(e->env_cr3);
+
+  env_pop_tf(&e->env_tf);
+	//demo2s_code_end;
+// Hint: Skip step 1 until exercise 4.  You don't
+// need it for exercise 1, and in exercise 4 you'll better
+// understand what you need to do.
+  
 }
 
 

@@ -10,13 +10,15 @@ OBJCOPY	:= objcopy
 
 # Native commands
 NCC	:= gcc $(CC_VER) -pipe
-TAR	:= gtar
+TAR	:= tar
 PERL	:= perl
 
 # Compiler flags
 # Note that -O2 is required for the boot loader to fit within 512 bytes;
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
-DEFS	:=
+
+#predefined macros 
+DEFS	:=-DTEST_ALICEBOB
 CFLAGS	:= $(CFLAGS) $(DEFS) -O2 -fno-builtin -I$(TOP) -MD -MP -Wall -ggdb
 
 # Lists that the */Makefrag makefile fragments will add to

@@ -113,4 +113,53 @@ _clock_interrupt:
 	popl	%edx
 	popl	%ecx
 	popl	%eax
-	iret			# return to whence we came..	
+	iret			# return to whence we came..
+
+# demo2s_code_start;
+
+IDTFNC_NOEC(divide,T_DIVIDE)	;
+IDTFNC_NOEC(debug,T_DEBUG)	;
+IDTFNC_NOEC(nmi,T_NMI)		;
+IDTFNC_NOEC(brkpt,T_BRKPT)	;
+IDTFNC_NOEC(oflow,T_OFLOW)	;
+IDTFNC_NOEC(bound,T_BOUND)	;
+IDTFNC_NOEC(illop,T_ILLOP)	;
+IDTFNC_NOEC(device,T_DEVICE)	;
+IDTFNC(dblflt,T_DBLFLT)		;
+	;;
+IDTFNC(tss,T_TSS)		;
+IDTFNC(segnp,T_SEGNP)		;
+IDTFNC(stack,T_STACK)		;
+IDTFNC(gpflt,T_GPFLT)		;
+IDTFNC(pgflt,T_PGFLT)		;
+	;;
+IDTFNC(fperr,T_FPERR)		;
+IDTFNC(align,T_ALIGN)		;
+IDTFNC(mchk,T_MCHK)		;
+	;;
+
+IDTFNC_NOEC(clockrpt,IRQ_OFFSET)	;
+	
+_alltraps:
+	pushl	%ds
+	pushl	%es
+	pushal
+	
+	movl $GD_KD,%eax	
+	movw %ax,%ds
+	movw %ax,%es
+	
+	pushl %esp
+	
+	call trap
+	
+	popl %eax
+	
+	popal
+	popl	%es	
+	popl	%ds
+	
+	addl $8,%esp
+		
+	iret
+# demo2s_code_end;

@@ -161,8 +161,11 @@ _bob_end:
 
 .global spin_start
 spin_start:
-	.space 0x20  # pretend there is an a.out header here	
-1:	jmp 1b		
+	.space 0x20  # pretend there is an a.out header here
+#	call clock
+#	mov $0x1234,%eax
+1:	jmp 1b
+	
 .global spin_end
 spin_end:
 
