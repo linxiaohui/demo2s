@@ -1,11 +1,13 @@
 TOP = .
 
 # Cross-compiler osclass toolchain
-CC	:= gcc-3.3 -pipe -m32
+#CC	:= gcc-3.3 -pipe -m32
+CC	:= gcc -pipe -m32
 GCC_LIB := $(shell $(CC) -print-libgcc-file-name)
 AS	:= as
 AR	:= ar
-LD	:= /usr/i586-suse-linux/bin/ld 
+#LD	:= /usr/i586-suse-linux/bin/ld 
+LD	:= ld 
 OBJCOPY	:= objcopy
 OBJDUMP	:= objdump
 
@@ -19,7 +21,7 @@ MV	:= mv
 # Note that -O2 is required for the boot loader to fit within 512 bytes;
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
 DEFS	:=
-CFLAGS	:= $(CFLAGS) $(DEFS) -O2 -fno-builtin -I$(TOP) -MD -MP -Wall -ggdb
+CFLAGS	:= $(CFLAGS) $(DEFS) -O2 -fno-builtin -I$(TOP) -MD -MP -Wall -ggdb -Wno-unused-variable -Wno-unused-but-set-variable
 
 # Linker flags for user programs
 ULDFLAGS := -Ttext 0x800020

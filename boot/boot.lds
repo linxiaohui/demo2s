@@ -10,7 +10,6 @@ SECTIONS
   .text : {
 	*(.text)
 	*(.fixup)
-	*(.gnu.warning)
 	*(.text.unlikely)
 	}
 
@@ -20,7 +19,6 @@ SECTIONS
 	*(.data)
 	*(.rodata)
 	*(.rodata.*)
-	*(.eh_frame)
 	CONSTRUCTORS
 	}
 
@@ -35,6 +33,8 @@ SECTIONS
   /DISCARD/ : {
 	*(.comment)
 	*(.debug_*)
+	*(.eh_frame)
+	*(.note.GNU-stack)
 	}
   end = . ;
 
