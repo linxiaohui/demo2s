@@ -1,1 +1,268 @@
-Shell
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="demo2s : DemoOS: MIT OCW 6.828" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>demo2s: shell</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/linxiaohui/demo2s">View on GitHub</a>
+
+          <h1 id="project_title">demo2s</h1>
+          <h2 id="project_tagline">DemoOS: MIT OCW 6.828</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/linxiaohui/demo2s/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/linxiaohui/demo2s/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h2>
+<a name="file-system" class="anchor" href="#file-system"><span class="octicon octicon-link"></span></a>File System</h2>
+
+<p>扩展文件系统以支持磁盘文件, 管道(pipe), 控制台(console, 标准输入输出), 要做到访问接口是一致的</p>
+
+<h3>
+<a name="1-%E6%96%87%E4%BB%B6%E6%8F%8F%E8%BF%B0%E7%AC%A6" class="anchor" href="#1-%E6%96%87%E4%BB%B6%E6%8F%8F%E8%BF%B0%E7%AC%A6"><span class="octicon octicon-link"></span></a>1. 文件描述符</h3>
+
+<p>为实现这些的要求(支持磁盘文件, 管道, 控制台), 引入文件描述符(file descriptor)的概念. 
+每一个文件描述符代表进程中的一个打开的文件(磁盘文件, 管道, console). 
+每一个进程的地址空间中都有一个文件描述符表(从<code>FDTABLE</code>开始, 最多<code>MAXFD</code>页, 每个文件描述符一页, 在<code>user/fs.c</code>中定义). 
+每个进程的第0, 1个文件描述符是预先设置好的(分别对应标准输入, 标准输出, 在<code>user/init.c</code>中实现). 
+每个文件描述符所在的页面存有如下数据结构:</p>
+
+<pre><code>struct Fd
+{
+    u_int fd_dev_id;
+    u_int fd_offset;
+    u_int fd_omode;
+};
+
+</code></pre>
+
+<p><code>struct Fd</code>是<code>struct Filefd</code>的一部分:</p>
+
+<pre><code>struct Filefd 
+{
+    struct Fd f_fd;
+    u_int f_fileid;
+    struct File f_file;
+};
+</code></pre>
+
+<p>所以其页面(一个文件描述符的页面)可能有其它的信息.</p>
+
+<p>每一个文件描述符对应进程中4M的地址空间.<br>
+如果一个文件描述符描述一个文件, 其对应的4M地址空间对应文件的内容;<br>
+如果一个文件描述符描述一个管道, 其对应的4M地址空间对应管道及其buffer   </p>
+
+<p>备注:<br><code>user/fd.c</code>里的定义(FILEBASE , FDTABLE, INDEX2FD(i), INDEX2DATA(i)等)</p>
+
+<h3>
+<a name="2-%E8%AE%BE%E5%A4%87" class="anchor" href="#2-%E8%AE%BE%E5%A4%87"><span class="octicon octicon-link"></span></a>2. 设备</h3>
+
+<p>文件系统支持的文件由下面的数据结构描述：</p>
+
+<pre><code>struct Dev
+{
+    int dev_id;
+    char *dev_name;
+    int (*dev_read)(struct Fd*, void*, u_int, u_int);
+    int (*dev_write)(struct Fd*, const void*, u_int, u_int);
+    int (*dev_close)(struct Fd*);
+    int (*dev_stat)(struct Fd*, struct Stat*);
+    int (*dev_seek)(struct Fd*, u_int);
+};
+</code></pre>
+
+<p>这里尤其需要注意的是函数指针. 该文件系统支持的所有文件类型(磁盘文件, 管道, console)有统一的描述, 统一的接口.<br>
+每种文件都有自己的实现读写等操作的函数. 这些函数被赋值给对应的函数指针.   </p>
+
+<p>如果用户程序需要读一个磁盘文件,<br>
+它需要调用<code>read()</code>, <code>read()</code>根据文件描述符找到其对应的设备
+(文件描述符页面中保存有Fd, 其中有fd_dev_id, 根据它在系统支持的文件类型表中查找), 
+并调用其<code>dev_read</code>, 该设备的<code>dev_read</code>已经被赋值为实现磁盘文件读操作的函数(<code>file_read()</code>,<code>user/file.c</code>中定义).   </p>
+
+<p>如果用户程序需要读一个管道, 它仍然需要调用<code>read()</code>, <code>read()</code>中根据文件描述符找到其对应的设备, 并调用其<code>dev_read</code>, 
+该设备的<code>dev_read</code>已经被赋值为实现管道读操作的函数(<code>piperead()</code>, <code>user/pipe.c</code>中定义).</p>
+
+<h3>
+<a name="3-%E6%96%87%E4%BB%B6%E6%93%8D%E4%BD%9C" class="anchor" href="#3-%E6%96%87%E4%BB%B6%E6%93%8D%E4%BD%9C"><span class="octicon octicon-link"></span></a>3. 文件操作</h3>
+
+<p>文件操作
+通过IPC实现文件(包括磁盘文件, 管道)的打开, 关闭, 创建, 读写, 删除等操作时, 
+文件系统服务程序返回的页面(由服务程序映射到用户进程地址空间页面)即相应的文件描述符对应的页面. 
+正如前面所述, 返回的页面中也可能有其它信息, 需要根据不同的类型决定.  </p>
+
+<p>文件操作执行的流程(以文件为代表):<br>
+1. 用户的文件操作库函数(<code>user/fd.c</code>, <code>user/file.c</code>等)<br>
+2. <code>user/fsipc.c</code><br>
+3. <code>fs/serve.c</code><br>
+4. <code>fs/fs.c.</code>    </p>
+
+<h3>
+<a name="4-%E9%A1%B5%E9%9D%A2%E5%85%B1%E4%BA%AB" class="anchor" href="#4-%E9%A1%B5%E9%9D%A2%E5%85%B1%E4%BA%AB"><span class="octicon octicon-link"></span></a>4. 页面共享</h3>
+
+<p>一些情况下进程之间应该共享页面(例如利用管道进行信息交换时). 
+此时因该设置其页面为<code>PTE_LIBRARY</code>(<code>user/lib.h</code>中定义). 
+用户进程与文件系统服务进程都需要对此支持. </p>
+
+<h3>
+<a name="5-%E7%AE%A1%E9%81%93" class="anchor" href="#5-%E7%AE%A1%E9%81%93"><span class="octicon octicon-link"></span></a>5. 管道</h3>
+
+<p>管道用于两个进程交换信息. 
+要解决的一个重要问题是竞争问题(race). 
+由于两个进程在用管道进行通信过程中可能出现一个进程退出而另一个进程还在等待的问题, 
+所以管道在进行读写时应判断管道是否已经关闭. 
+判断方法为比较管道对应的页面与读进程(或写进程)中该管道的文件描述符对应的页面的引用数是否相等. </p>
+
+<p>两个数的比较过程在两种情况下可能出现错误的结果: 更新竞争(update race)与读竞争(read race).<br>
+解决方案在<a href="MIT6.828/lab6.pdf">lab6.pdf</a>中描述.<br>
+其中关键的思想是尽量保证比较过程的原子性:<br>
+对update race采取的方法是按顺序进行相应页面的映射操作, 这样两者的关系是确定的;<br>
+对read race采取的方法是若某个原子操作过程被中断, 则重新操作.<br>
+为了达到这个目的, 在进程进程控制块中记录该进程被调度的次数:<br>
+在进程进入原子操作时保存当前被调度次数, 与结束原子操作时比较, 若二者不一致则重新调度. </p>
+
+<h2>
+<a name="keyboard" class="anchor" href="#keyboard"><span class="octicon octicon-link"></span></a>Keyboard</h2>
+
+<p>键盘中断是外部中断<code>IRQ1</code>. 设置其中断处理函数后(<code>trap()</code>, <code>kern/trap.c</code>中定义)之后, bochs的GUI中就可以响应键盘输入了. </p>
+
+<h2>
+<a name="shell" class="anchor" href="#shell"><span class="octicon octicon-link"></span></a>Shell</h2>
+
+<p>实现输入输出重定向以及管道. </p>
+
+<p>Shell是一个用户进程(<code>user/sh.c</code>). 
+它首先获得用户的输入, 然后运行<code>runcmd()</code>. </p>
+
+<p>Shell要支持输入重定向(<code>&lt;</code>), 输出重定向(<code>&gt;</code>), 管道(<code>|</code>). </p>
+
+<p>输入输出重定向通过文件描述符的复制(<code>dup()</code>)来实现. 
+文件描述符的复制指将一个文件描述符oldfd复制给另一个文件描述符newfd. 
+之后对newfd的引用相当于对oldfd的引用. </p>
+
+<p>实现管道时, 首先要创建一个管道(<code>pipe()</code>, <code>user/pipe.c</code>中定义), 
+然后<code>fork()</code> (user/fork.c中定义)一个子进程, 
+然后将两个进程的标准输入(或标准输出)映射到管道的读写. </p>
+
+<p>Shell扩展. 如文件创建, 删除, 工作目录切换, 可执行文件路径等</p>
+
+<p>在编写(将被格式化到磁盘中的)命令时, 需要熟悉<code>inc/args.h</code>文件中定义的宏<code>ARGBEGIN</code>, <code>ARGEND</code> </p>
+
+<h5>
+<a name="1-%E5%BD%A9%E8%89%B2shell%E8%BE%93%E5%87%BA" class="anchor" href="#1-%E5%BD%A9%E8%89%B2shell%E8%BE%93%E5%87%BA"><span class="octicon octicon-link"></span></a>1. 彩色shell输出</h5>
+
+<p>shell命令<code>testcolor</code>(<code>user/testcolor.c</code>).</p>
+
+<p>实现原理及编程接口:</p>
+
+<p>输出设备的驱动程序在<code>kern/console.c</code>中定义. 
+<code>cga_putc()</code>等函数实现了输出到输出设备的任务. 
+<code>cga_putc()</code> 向输出设备输出一个形如<code>0xmnpq</code>的数(m, n, p, q为0-f). 
+其中<code>m</code>代表输出的背景色, <code>n</code>代表输出的前景色, <code>0xpq</code>为输出的ASCII码.<br>
+其中前景色与背景色的定义如下. </p>
+
+<pre><code>BLACK 0 黑
+BLUE 1 兰 
+GREEN 2 绿
+CYAN 3 青 
+RED 4 红 
+MAGENTA 5 洋红
+BROWN 6 棕
+LIGHTGRAY 7 淡灰
+DARKGRAY 8 深灰
+LIGHTBLUE 9 淡兰 
+LIGHTGREEN a 淡绿
+LIGHTCYAN b 淡青
+LIGHTRED c 淡红
+LIGHTMAGENTA d 淡洋红 
+YELLOW e 黄 
+WHITE f 白
+</code></pre>
+
+<p>其中0-7既可以用做背景色, 也可以被用做前景色. 8-f只能用作前景(字符)色.    </p>
+
+<p>输出到控制台的信息可以分成两种: 内核输出与用户进程输出. 
+内核输出是调用相关的驱动程序, 可以有控制信息(字符及背景颜色等). 
+用户进程输出是调用库程序将参数处理成字符串, 然后交给系统调用, 输出字符串, 之上不能附加控制信息.
+因此控制信息(变量<code>color</code>, <code>kern/printf.c</code>中定义)在内核中, 增加一个系统调用(<code>sys_set_color</code>)用于更改控制信息.    </p>
+
+<p>函数<code>printf()</code>(<code>kern/printf.c</code>, <code>user/printf.c</code>)也进行了相应的扩展. 
+控制字符"%C"用于更改输出颜色, 对应的参数为前景色与背景色的组合(相关宏在<code>inc/types.h</code>中定义). </p>
+
+<h5>
+<a name="2-ctrl-c%E7%BB%88%E6%AD%A2%E6%AD%A3%E5%9C%A8%E8%BF%90%E8%A1%8C%E7%9A%84%E8%BF%9B%E7%A8%8B" class="anchor" href="#2-ctrl-c%E7%BB%88%E6%AD%A2%E6%AD%A3%E5%9C%A8%E8%BF%90%E8%A1%8C%E7%9A%84%E8%BF%9B%E7%A8%8B"><span class="octicon octicon-link"></span></a>2. Ctrl-C终止正在运行的进程.</h5>
+
+<p><code>cons_intr()</code> (<code>kern/console.c</code>中定义)处理键盘输入. 
+当检测到输入为Ctrl-C组合键时(ASCII码为3), 调用<code>env_distroy()</code>(在<code>kern/env.c</code>中定义). </p>
+
+<p>注: 这一功能bochs-2.1.1不支持. 在bochs-2.2.6中测试成功. </p>
+
+<h5>
+<a name="3-%E5%88%9B%E5%BB%BA%E6%96%87%E4%BB%B6" class="anchor" href="#3-%E5%88%9B%E5%BB%BA%E6%96%87%E4%BB%B6"><span class="octicon octicon-link"></span></a>3. 创建文件</h5>
+
+<p><code>serve_open()</code> (<code>fs/serve.c</code>)负责打开文件. 
+可以根据其权限参数采用不同的方式(调用<code>file_open()</code>或<code>file_create()</code>, 在<code>fs/fs.c</code>中定义).<br>
+当一个文件以可写方式打开而且不存在时, 创建该文件.</p>
+
+<h5>
+<a name="4-%E5%88%A0%E9%99%A4%E6%96%87%E4%BB%B6" class="anchor" href="#4-%E5%88%A0%E9%99%A4%E6%96%87%E4%BB%B6"><span class="octicon octicon-link"></span></a>4. 删除文件</h5>
+
+<p>添加命令<code>rm</code> (<code>user/rm.c</code>) , 删除文件. (注: 不支持通配符). </p>
+
+<h5>
+<a name="5-%E7%B3%BB%E7%BB%9F%E5%B8%AE%E5%8A%A9" class="anchor" href="#5-%E7%B3%BB%E7%BB%9F%E5%B8%AE%E5%8A%A9"><span class="octicon octicon-link"></span></a>5. 系统帮助</h5>
+
+<p>添加命令<code>help</code> (user/help.c), 显示系统帮助. (内容由<code>fs/help.msg</code>指定). </p>
+
+<h2>
+<a name="bochs" class="anchor" href="#bochs"><span class="octicon octicon-link"></span></a>Bochs</h2>
+
+<p>bochs的命令行界面不响应键盘输入, 需要其GUI界面</p>
+
+<p>bochs的配置命令为：<br><code>./configure --enable-debugger --enable-disas --enable-iodebug --enable-readline</code></p>
+
+<h2>
+<a name="memory-amount" class="anchor" href="#memory-amount"><span class="octicon octicon-link"></span></a>Memory Amount</h2>
+
+<p>CMOS最多只能识别64M内存. 
+改进的方法为:<br>
+在系统引导时(<code>boot/boot.S</code>)调用BIOS功能调用int $0x15(%ax=$0xe801). 探测的内存数量将被保存到cx, dx寄存器中.<br>
+然后以它们为参数调用<code>cmain()</code>(<code>boot/main.c</code>), cmain将它们传递给内核(通过堆栈, 但值得说明的是这不是函数参数)   </p>
+
+<p><code>cmain()</code> (<code>boot/main.c</code>)<br><code>i386_init()</code> (<code>kern/init.c</code>)<br><code>i386_detect_memory()</code>  (<code>kern/pmap.c</code>)  </p>
+
+<p>由于该操作系统最多支持256M内存, 因此<code>i386_detect_memory</code>中会对探测的内存进行处理(若内存数量大于256M按256M计算)</p>
+
+<p><a href="index.html">Return</a></p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">demo2s maintained by <a href="https://github.com/linxiaohui">linxiaohui</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>

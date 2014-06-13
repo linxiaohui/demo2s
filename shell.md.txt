@@ -1,0 +1,209 @@
+## File System 
+
+扩展文件系统以支持磁盘文件, 管道(pipe), 控制台(console, 标准输入输出), 要做到访问接口是一致的
+
+### 1. 文件描述符
+为实现这些的要求(支持磁盘文件, 管道, 控制台), 引入文件描述符(file descriptor)的概念. 
+每一个文件描述符代表进程中的一个打开的文件(磁盘文件, 管道, console). 
+每一个进程的地址空间中都有一个文件描述符表(从`FDTABLE`开始, 最多`MAXFD`页, 每个文件描述符一页, 在`user/fs.c`中定义). 
+每个进程的第0, 1个文件描述符是预先设置好的(分别对应标准输入, 标准输出, 在`user/init.c`中实现). 
+每个文件描述符所在的页面存有如下数据结构:
+
+```
+struct Fd
+{
+    u_int fd_dev_id;
+    u_int fd_offset;
+    u_int fd_omode;
+};
+
+```
+`struct Fd`是`struct Filefd`的一部分:
+```
+struct Filefd 
+{
+	struct Fd f_fd;
+	u_int f_fileid;
+	struct File f_file;
+};
+```
+所以其页面(一个文件描述符的页面)可能有其它的信息.
+
+每一个文件描述符对应进程中4M的地址空间.    
+如果一个文件描述符描述一个文件, 其对应的4M地址空间对应文件的内容;   
+如果一个文件描述符描述一个管道, 其对应的4M地址空间对应管道及其buffer   
+
+备注:   
+`user/fd.c`里的定义(FILEBASE , FDTABLE, INDEX2FD(i), INDEX2DATA(i)等)
+
+
+### 2. 设备
+文件系统支持的文件由下面的数据结构描述：
+```
+struct Dev
+{
+	int dev_id;
+	char *dev_name;
+	int (*dev_read)(struct Fd*, void*, u_int, u_int);
+	int (*dev_write)(struct Fd*, const void*, u_int, u_int);
+	int (*dev_close)(struct Fd*);
+	int (*dev_stat)(struct Fd*, struct Stat*);
+	int (*dev_seek)(struct Fd*, u_int);
+};
+```
+
+这里尤其需要注意的是函数指针. 该文件系统支持的所有文件类型(磁盘文件, 管道, console)有统一的描述, 统一的接口.   
+每种文件都有自己的实现读写等操作的函数. 这些函数被赋值给对应的函数指针.   
+
+如果用户程序需要读一个磁盘文件,   
+它需要调用`read()`, `read()`根据文件描述符找到其对应的设备
+(文件描述符页面中保存有Fd, 其中有fd_dev_id, 根据它在系统支持的文件类型表中查找), 
+并调用其`dev_read`, 该设备的`dev_read`已经被赋值为实现磁盘文件读操作的函数(`file_read()`,`user/file.c`中定义).   
+
+如果用户程序需要读一个管道, 它仍然需要调用`read()`, `read()`中根据文件描述符找到其对应的设备, 并调用其`dev_read`, 
+该设备的`dev_read`已经被赋值为实现管道读操作的函数(`piperead()`, `user/pipe.c`中定义).
+
+
+### 3. 文件操作
+文件操作
+通过IPC实现文件(包括磁盘文件, 管道)的打开, 关闭, 创建, 读写, 删除等操作时, 
+文件系统服务程序返回的页面(由服务程序映射到用户进程地址空间页面)即相应的文件描述符对应的页面. 
+正如前面所述, 返回的页面中也可能有其它信息, 需要根据不同的类型决定.  
+
+文件操作执行的流程(以文件为代表):   
+1. 用户的文件操作库函数(`user/fd.c`, `user/file.c`等)   
+2. `user/fsipc.c`   
+3. `fs/serve.c`    
+4. `fs/fs.c.`    
+
+
+### 4. 页面共享
+一些情况下进程之间应该共享页面(例如利用管道进行信息交换时). 
+此时因该设置其页面为`PTE_LIBRARY`(`user/lib.h`中定义). 
+用户进程与文件系统服务进程都需要对此支持. 
+
+
+### 5. 管道
+管道用于两个进程交换信息. 
+要解决的一个重要问题是竞争问题(race). 
+由于两个进程在用管道进行通信过程中可能出现一个进程退出而另一个进程还在等待的问题, 
+所以管道在进行读写时应判断管道是否已经关闭. 
+判断方法为比较管道对应的页面与读进程(或写进程)中该管道的文件描述符对应的页面的引用数是否相等. 
+
+两个数的比较过程在两种情况下可能出现错误的结果: 更新竞争(update race)与读竞争(read race).    
+解决方案在[lab6.pdf](MIT6.828/lab6.pdf)中描述.   
+其中关键的思想是尽量保证比较过程的原子性:   
+对update race采取的方法是按顺序进行相应页面的映射操作, 这样两者的关系是确定的;    
+对read race采取的方法是若某个原子操作过程被中断, 则重新操作.    
+为了达到这个目的, 在进程进程控制块中记录该进程被调度的次数:   
+在进程进入原子操作时保存当前被调度次数, 与结束原子操作时比较, 若二者不一致则重新调度. 
+
+
+
+## Keyboard
+键盘中断是外部中断`IRQ1`. 设置其中断处理函数后(`trap()`, `kern/trap.c`中定义)之后, bochs的GUI中就可以响应键盘输入了. 
+
+## Shell
+
+实现输入输出重定向以及管道. 
+
+Shell是一个用户进程(`user/sh.c`). 
+它首先获得用户的输入, 然后运行`runcmd()`. 
+
+Shell要支持输入重定向(`<`), 输出重定向(`>`), 管道(`|`). 
+
+输入输出重定向通过文件描述符的复制(`dup()`)来实现. 
+文件描述符的复制指将一个文件描述符oldfd复制给另一个文件描述符newfd. 
+之后对newfd的引用相当于对oldfd的引用. 
+
+实现管道时, 首先要创建一个管道(`pipe()`, `user/pipe.c`中定义), 
+然后`fork()` (user/fork.c中定义)一个子进程, 
+然后将两个进程的标准输入(或标准输出)映射到管道的读写. 
+
+
+Shell扩展. 如文件创建, 删除, 工作目录切换, 可执行文件路径等
+
+在编写(将被格式化到磁盘中的)命令时, 需要熟悉`inc/args.h`文件中定义的宏`ARGBEGIN`, `ARGEND` 
+
+
+##### 1. 彩色shell输出
+
+shell命令`testcolor`(`user/testcolor.c`).
+ 
+实现原理及编程接口:
+
+输出设备的驱动程序在`kern/console.c`中定义. 
+`cga_putc()`等函数实现了输出到输出设备的任务. 
+`cga_putc()` 向输出设备输出一个形如`0xmnpq`的数(m, n, p, q为0-f). 
+其中`m`代表输出的背景色, `n`代表输出的前景色, `0xpq`为输出的ASCII码.    
+其中前景色与背景色的定义如下. 
+```
+BLACK 0 黑
+BLUE 1 兰 
+GREEN 2 绿
+CYAN 3 青 
+RED 4 红 
+MAGENTA 5 洋红
+BROWN 6 棕
+LIGHTGRAY 7 淡灰
+DARKGRAY 8 深灰
+LIGHTBLUE 9 淡兰 
+LIGHTGREEN a 淡绿
+LIGHTCYAN b 淡青
+LIGHTRED c 淡红
+LIGHTMAGENTA d 淡洋红 
+YELLOW e 黄 
+WHITE f 白
+```
+其中0-7既可以用做背景色, 也可以被用做前景色. 8-f只能用作前景(字符)色.    
+
+输出到控制台的信息可以分成两种: 内核输出与用户进程输出. 
+内核输出是调用相关的驱动程序, 可以有控制信息(字符及背景颜色等). 
+用户进程输出是调用库程序将参数处理成字符串, 然后交给系统调用, 输出字符串, 之上不能附加控制信息.
+因此控制信息(变量`color`, `kern/printf.c`中定义)在内核中, 增加一个系统调用(`sys_set_color`)用于更改控制信息.    
+
+函数`printf()`(`kern/printf.c`, `user/printf.c`)也进行了相应的扩展. 
+控制字符"%C"用于更改输出颜色, 对应的参数为前景色与背景色的组合(相关宏在`inc/types.h`中定义). 
+
+
+##### 2. Ctrl-C终止正在运行的进程. 
+`cons_intr()` (`kern/console.c`中定义)处理键盘输入. 
+当检测到输入为Ctrl-C组合键时(ASCII码为3), 调用`env_distroy()`(在`kern/env.c`中定义). 
+
+注: 这一功能bochs-2.1.1不支持. 在bochs-2.2.6中测试成功. 
+
+
+##### 3. 创建文件
+`serve_open()` (`fs/serve.c`)负责打开文件. 
+可以根据其权限参数采用不同的方式(调用`file_open()`或`file_create()`, 在`fs/fs.c`中定义).   
+当一个文件以可写方式打开而且不存在时, 创建该文件.
+
+
+##### 4. 删除文件
+添加命令`rm` (`user/rm.c`) , 删除文件. (注: 不支持通配符). 
+
+##### 5. 系统帮助
+添加命令`help` (user/help.c), 显示系统帮助. (内容由`fs/help.msg`指定). 
+
+
+## Bochs
+
+bochs的命令行界面不响应键盘输入, 需要其GUI界面
+
+bochs的配置命令为：   
+`./configure --enable-debugger --enable-disas --enable-iodebug --enable-readline`
+
+
+## Memory Amount
+
+CMOS最多只能识别64M内存. 
+改进的方法为:    
+在系统引导时(`boot/boot.S`)调用BIOS功能调用int $0x15(%ax=$0xe801). 探测的内存数量将被保存到cx, dx寄存器中.  
+然后以它们为参数调用`cmain()`(`boot/main.c`), cmain将它们传递给内核(通过堆栈, 但值得说明的是这不是函数参数)   
+
+`cmain()` (`boot/main.c`)  
+`i386_init()` (`kern/init.c`)  
+`i386_detect_memory()`  (`kern/pmap.c`)  
+
+由于该操作系统最多支持256M内存, 因此`i386_detect_memory`中会对探测的内存进行处理(若内存数量大于256M按256M计算)
+
