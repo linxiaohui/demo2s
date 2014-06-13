@@ -74,11 +74,11 @@ KERN_BINFILES := \
 	user/testptelibrary \
 	user/testshell \
 	user/writemotd \
-	fs/fs \
 
 KERN_BINFILES := $(foreach file, $(KERN_BINFILES), \
-			$(shell test -f $(file).c && echo $(file)))
+			$(shell test -f $(file).c && echo $(file).lib))
 
+KERN_BINFILES += fs/fs
 
 # How to build the kernel itself
 kern/kernel: $(KERN_OBJFILES) $(KERN_BINFILES)
