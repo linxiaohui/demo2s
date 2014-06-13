@@ -43,7 +43,7 @@ fs/fs: fs/fs.b.c
 	@echo cc $<
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
-fs/fs.b.c: fs/fs.b
+fs/fs.b.c: fs/fs.b fs/bintoc
 	@echo create $@
 	$(TOP)/fs/bintoc fs $< > $@~ && mv -f $@~ $@
 	
@@ -65,6 +65,10 @@ fs/fs.img: fs/fsformat $(FSIMGFILES)
 	@rm -rf fs/fs.img
 	bximage -hd -mode=flat -size=4 fs/fs.img -q > /dev/null
 	./fs/fsformat fs/fs.img $(FSIMGFILES)
+
+fs/bintoc: tools/bintoc/fsbintoc.c
+	$(CC) tools/bintoc/fsbintoc.c  -o fs/bintoc
+
 
 all: fs/fs.img
 

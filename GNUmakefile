@@ -27,7 +27,7 @@ ULDFLAGS := -Ttext 0x800020
 # Lists that the */Makefrag makefile fragments will add to
 OBJDIRS :=
 CLEAN_FILES := .deps bochs.log
-CLEAN_PATS := *.o *.d *.asm *.lib *.b.c
+CLEAN_PATS := *.o *.d *.asm *.lib *.b.c *.b
 
 
 # Make sure that 'all' is the first target

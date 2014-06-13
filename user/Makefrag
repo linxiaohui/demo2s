@@ -38,6 +38,8 @@ CLEAN_FILES += \
 	user/testcolor \
 	user/help \
 	user/rm \
+	user/testpiperace \
+	user/testpiperace2
 
 OBJDIRS += user
 
@@ -64,7 +66,7 @@ user/%.lib:user/%.b.c
 	@$(CC) $(CFLAGS) -o $@ -c $<
 	
 
-user/%.b.c: user/%.b
+user/%.b.c: user/%.b user/bintoc
 	@echo create $@
 	@echo bintoc $* $< > $@~
 	@$(TOP)/user/bintoc $* $< > $@~ && mv -f $@~ $@
@@ -89,6 +91,8 @@ user/%.o: lib.h
 user/%: user/%.b 
 	cp -f $< $@
 
-	
+user/bintoc: tools/bintoc/userbintoc.c 
+	$(CC) tools/bintoc/userbintoc.c  -o user/bintoc
+
 .PRECIOUS: %.o user/%
 
